@@ -82,7 +82,6 @@ import {
   getFishLevel,
   isFishUnlocked,
   checkNewlyUnlockedFish,
-  getFishDisplayName,
   getFishThemeColor,
 } from '../utils/fish';
 import {
@@ -164,6 +163,10 @@ export const FlappyGame: React.FC = () => {
   const [currentAttemptFragments, setCurrentAttemptFragments] = useState<FishFragmentCounts>(() =>
     createEmptyFragmentCounts()
   );
+  const [priorReefMaxFragments, setPriorReefMaxFragments] = useState<FishFragmentCounts>(() =>
+    createEmptyFragmentCounts()
+  );
+  const [priorTotalFragments, setPriorTotalFragments] = useState<FishFragmentCounts | null>(null);
   const [clearedAtlantisGate, setClearedAtlantisGate] = useState<boolean>(false);
   const [clearedGulfStream, setClearedGulfStream] = useState<boolean>(false);
   const [lastClearTime, setLastClearTime] = useState<number | undefined>(undefined);
@@ -231,6 +234,7 @@ export const FlappyGame: React.FC = () => {
       life: number;
     }>;
     recordJuiceState: FragmentRecordJuiceState;
+    reefClearedTime: number;
   }>({
     gameState: 'IDLE',
     isPaused: false,
@@ -276,6 +280,7 @@ export const FlappyGame: React.FC = () => {
     currentAttemptFragments: createEmptyFragmentCounts(),
     pickupEffects: [],
     recordJuiceState: createRecordJuiceState(),
+    reefClearedTime: 0,
   });
 
   // Synchronize refs with state
@@ -381,6 +386,8 @@ export const FlappyGame: React.FC = () => {
     const updated = saveReefSelection(reefNumber);
     setReefProgress(updated);
     setNewlyUnlockedFish(null);
+    setPriorTotalFragments(null);
+    setPriorReefMaxFragments(null);
 
     const safeReef = updated.currentReef;
     s.currentReef = safeReef;
@@ -438,6 +445,8 @@ export const FlappyGame: React.FC = () => {
     const updated = saveReefSelection(nextReef);
     setReefProgress(updated);
     setNewlyUnlockedFish(null);
+    setPriorTotalFragments(null);
+    setPriorReefMaxFragments(null);
 
     // Keep cumulative s.score and s.runTotalFlaps intact!
     const safeNext = updated.currentReef;
@@ -505,6 +514,7 @@ export const FlappyGame: React.FC = () => {
       // Transition from start/ready to playing
       s.gameState = 'PLAYING';
       setGameState('PLAYING');
+      setNewlyUnlockedFish(null);
       setIsContinuingRun(false);
       s.reefElapsedTime = 0;
       const flapRes = s.fishBehavior.onFlap(s.bird, config);
@@ -598,6 +608,8 @@ export const FlappyGame: React.FC = () => {
     setIsNewHighScore(false);
     setIsPaused(false);
     setNewlyUnlockedFish(null);
+    setPriorTotalFragments(null);
+    setPriorReefMaxFragments(null);
     setClearedAtlantisGate(false);
     setClearedGulfStream(false);
     setLastClearTime(undefined);
@@ -682,6 +694,8 @@ export const FlappyGame: React.FC = () => {
     setIsNewHighScore(false);
     setIsPaused(false);
     setNewlyUnlockedFish(null);
+    setPriorTotalFragments(null);
+    setPriorReefMaxFragments(null);
     setClearedAtlantisGate(false);
     setClearedGulfStream(false);
     setLastClearTime(undefined);
@@ -739,6 +753,10 @@ export const FlappyGame: React.FC = () => {
         if (s.gameState === 'GAMEOVER') {
           handleReplayLevel();
         } else if (s.gameState === 'REEF_CLEARED') {
+          // Ignore space bar for 0.5 seconds so player won't accidentally close modal too soon
+          if (Date.now() - (s.reefClearedTime || 0) < 500) {
+            return;
+          }
           // If cleared, space advances to next reef or replays
           if (s.currentReef < TOTAL_REEF_LEVELS) {
             handleContinueRunToNextReef();
@@ -910,12 +928,11 @@ export const FlappyGame: React.FC = () => {
                   ...createFragmentCollectParticles(frag.x, frag.currentY, frag.fishType)
                 );
 
-                const fishName = getFishDisplayName(frag.fishType);
                 const themeColor = getFishThemeColor(frag.fishType);
 
                 s.pickupEffects.push({
                   id: Math.random(),
-                  text: `+1 ${fishName} Fragment`,
+                  text: '+1',
                   fishType: frag.fishType,
                   color: themeColor,
                   x: frag.x,
@@ -982,6 +999,7 @@ export const FlappyGame: React.FC = () => {
               // Check if all 10 columns of this Reef have been successfully cleared!
               if (s.reefScore >= COLUMNS_PER_REEF) {
                 s.gameState = 'REEF_CLEARED';
+                s.reefClearedTime = Date.now();
                 setGameState('REEF_CLEARED');
                 sound.playLevelClear();
 
@@ -1020,7 +1038,13 @@ export const FlappyGame: React.FC = () => {
                 }
 
                 // Retain and record max fragments for this completed reef
-                const prevFragsOnClear = getTotalFragmentsByFish(allReefFragments);
+                const priorStoredFragments = loadReefFragments();
+                const priorReefRecord = {
+                  ...(priorStoredFragments[s.currentReef] || getReefMaxFragments(s.currentReef))
+                };
+                setPriorReefMaxFragments(priorReefRecord);
+                const prevFragsOnClear = getTotalFragmentsByFish(priorStoredFragments);
+                setPriorTotalFragments(prevFragsOnClear);
                 const { updated: updatedFragments } = recordReefFragments(
                   s.currentReef,
                   s.currentAttemptFragments
@@ -1511,18 +1535,16 @@ export const FlappyGame: React.FC = () => {
             <div className="flex items-center justify-center pointer-events-auto">
               <div
                 id="hud-reef-fragments"
-                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-cyan-500/30 bg-slate-950/70 text-cyan-200 flex items-center gap-1.5 shadow-md backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-cyan-500/30 bg-slate-950/70 text-cyan-200 flex items-center gap-2 shadow-md backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
                 title="Fragments collected in this Reef attempt"
               >
-                <span className="text-amber-300">🧩</span>
-                <span className="text-[9px] uppercase tracking-wider text-slate-400">Reef Fragments:</span>
-                <div className="flex items-center gap-1.5 font-mono text-[9px]">
+                <div className="flex items-center gap-2 font-mono text-[10px]">
                   {(Object.entries(currentAttemptFragments) as [FishType, number][])
                     .filter(([_, count]) => count > 0)
                     .map(([fish, count]) => (
                       <span key={fish} className="text-amber-300 font-bold inline-flex items-center gap-1">
                         <FishBadgeIcon fishType={fish} size={13} />
-                        <span>x{count}</span>
+                        <span>{count}</span>
                       </span>
                     ))}
                 </div>
@@ -1561,8 +1583,12 @@ export const FlappyGame: React.FC = () => {
                   className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-orange-500/40 bg-orange-500/20 text-orange-200 flex items-center gap-1.5 shadow-md backdrop-blur-md"
                 >
                   <FishBadgeIcon fishType="clownfish" size={14} />
-                  <span>Buoyant Glide:</span>
-                  <span className="text-orange-300 font-mono">-10% Speed</span>
+                  <span>Ascent Multiplier:</span>
+                  <span className="text-orange-300 font-mono">
+                    {abilitySnapshot.clownfishUpwardTaps && abilitySnapshot.clownfishUpwardTaps > 0
+                      ? `${abilitySnapshot.clownfishUpwardTaps}x Tap (${Math.round((abilitySnapshot.clownfishGravityMultiplier ?? 1) * 100)}%)`
+                      : 'TAP UP'}
+                  </span>
                 </div>
               )}
               {selectedFish === 'singray' && (
@@ -1777,6 +1803,8 @@ export const FlappyGame: React.FC = () => {
           difficulty={difficulty}
           attemptFragments={currentAttemptFragments}
           reefMaxFragments={getReefMaxFragments(reefProgress.currentReef)}
+          totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
+          priorTotalFragmentsByFish={priorTotalFragments || undefined}
           onRestart={handleReplayLevel}
           onOpenStats={() => setShowStatsModal(true)}
           onGoHome={handleRestart}
@@ -1795,8 +1823,10 @@ export const FlappyGame: React.FC = () => {
           unlockedFish={newlyUnlockedFish}
           selectedFish={selectedFish}
           attemptFragments={currentAttemptFragments}
+          priorReefMaxFragments={priorReefMaxFragments}
           reefMaxFragments={getReefMaxFragments(reefProgress.currentReef)}
-          totalFragmentsByFish={getTotalFragmentsByFish()}
+          totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
+          priorTotalFragmentsByFish={priorTotalFragments || undefined}
           isAtlantisGateUnlocked={Boolean(
             reefProgress.atlantisGateUnlocked ||
             stats.atlantisGateUnlocked ||

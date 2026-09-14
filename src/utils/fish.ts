@@ -34,8 +34,8 @@ export const FISH_LIST: FishUnlockTier[] = [
     badgeEmoji: '🐠',
     themeColor: '#F97316',
     accentColor: '#0F172A',
-    specialPowerTitle: 'Buoyant Glide',
-    specialPowerDesc: 'Upward motion reduced via 1 - 0.80*(1-(7/8)^level), downward motion fixed 10% slower.',
+    specialPowerTitle: 'Ascent Multiplier',
+    specialPowerDesc: 'Consecutive upward flaps scale speed and gravity: octopusValue * (min(taps, level+1)/(level+1)). Resets when traveling downward.',
     fragmentsToCollect: 10,
   },
   {
@@ -126,21 +126,86 @@ export function getFishLevelProgress(totalFragments: number): {
 }
 
 /**
- * Checks if any fish has just unlocked (crossed from level 0 to level >= 1).
+ * Checks if any fish has just achieved a new level threshold (e.g. 10 fragments for Level 1, 20 for Level 2, etc.).
+ * Returns the fish tier along with the achieved level if a new level was crossed.
  */
 export function checkNewlyUnlockedFish(
   prevFragments: Record<FishType, number>,
   newFragments: Record<FishType, number>
 ): FishUnlockTier | null {
   for (const fish of FISH_LIST) {
-    if (fish.id === 'octopus') continue;
     const prevLevel = getFishLevel(prevFragments[fish.id] || 0);
     const newLevel = getFishLevel(newFragments[fish.id] || 0);
-    if (prevLevel === 0 && newLevel >= 1) {
-      return fish;
+    if (newLevel > prevLevel && newLevel >= 1) {
+      return {
+        ...fish,
+        achievedLevel: newLevel,
+      };
     }
   }
   return null;
+}
+
+export interface FishLevelProgressionResult {
+  prevLevel: number;
+  achievedLevel: number;
+  hasNewFishLevel: boolean;
+  beyondRecordSlots: number;
+}
+
+/**
+ * Calculates fish level progression for a given fish attempt.
+ * Shared across both Reef Cleared modal and Tangled in Kelp (game over) modal.
+ *
+ * In Reef Cleared (isGameOver = false), totalFragments already includes the banked beyondRecordSlots.
+ * In Tangled in Kelp (isGameOver = true), totalFragments is the unbanked baseline;
+ * we determine if banking the beyondRecordSlots from this attempt would have reached a new fish level.
+ */
+export function computeFishLevelProgression({
+  collected,
+  priorRecord,
+  totalFragments,
+  priorTotalFragments,
+  isGameOver = false,
+}: {
+  collected: number;
+  priorRecord: number;
+  totalFragments: number;
+  priorTotalFragments?: number;
+  isGameOver?: boolean;
+}): FishLevelProgressionResult {
+  const isBeyondRecord = collected > priorRecord;
+  const beyondRecordSlots = isBeyondRecord ? collected - priorRecord : 0;
+
+  if (isGameOver) {
+    const baseline = Math.max(0, totalFragments || 0);
+    const potentialTotal = baseline + beyondRecordSlots;
+    const prevLevel = getFishLevel(baseline);
+    const achievedLevel = getFishLevel(potentialTotal);
+    const hasNewFishLevel = beyondRecordSlots > 0 && achievedLevel > prevLevel;
+
+    return {
+      prevLevel,
+      achievedLevel,
+      hasNewFishLevel,
+      beyondRecordSlots,
+    };
+  } else {
+    const currentTotal = Math.max(0, totalFragments || 0);
+    const priorTotal = priorTotalFragments !== undefined
+      ? priorTotalFragments
+      : Math.max(0, currentTotal - beyondRecordSlots);
+    const prevLevel = getFishLevel(priorTotal);
+    const achievedLevel = getFishLevel(currentTotal);
+    const hasNewFishLevel = beyondRecordSlots > 0 && achievedLevel > prevLevel;
+
+    return {
+      prevLevel,
+      achievedLevel,
+      hasNewFishLevel,
+      beyondRecordSlots,
+    };
+  }
 }
 
 export function getFishById(fishId: FishType): FishUnlockTier {
@@ -197,10 +262,9 @@ export function getFishSpecialPower(
     }
     case 'clownfish': {
       const lvl = Math.max(1, level);
-      const reduction = 0.80 * (1 - Math.pow(7 / 8, lvl));
       return {
-        title: 'Buoyant Glide',
-        desc: `Upward motion reduced by ${(reduction * 100).toFixed(1)}% (via 1-0.80*(1-(7/8)^lvl)), downward motion fixed 10% slower.`,
+        title: 'Ascent Multiplier',
+        desc: `Upward speed and gravity scale with consecutive upward taps: octopusValue * (min(taps, ${lvl + 1}) / ${lvl + 1}). Resets to 0 on descent.`,
       };
     }
     case 'singray': {

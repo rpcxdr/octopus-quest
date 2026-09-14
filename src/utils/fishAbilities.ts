@@ -25,6 +25,7 @@ export interface FishCollisionResolution {
  */
 export interface FishAbilityState {
   fishType: FishType;
+  fishLevel?: number;
   
   // Pufferfish Survival Shield
   shieldState: 'ready' | 'active' | 'used';
@@ -41,8 +42,12 @@ export interface FishAbilityState {
   seahorseSwimTimeRemaining: number;
   isSeahorseSettling: boolean;
 
-  // Clownfish Slower Float
+  // Clownfish Slower Float & Upward Taps
   isBuoyantSlower: boolean;
+  clownfishUpwardTaps?: number;
+  clownfishMaxTaps?: number;
+  clownfishGravityTaps?: number;
+  clownfishGravityMultiplier?: number;
 }
 
 /**
@@ -379,39 +384,57 @@ export class PufferFishBehavior extends BaseFishBehavior {
 
 /**
  * 3. CLOWN FISH BEHAVIOR
- * Special Power: Upward motion is reduced using:
- * upward_motion = (base_upward_motion) * (1 - 0.80 * (1 - Math.pow(7/8, fish_level)))
- * Downward motion is a fixed 10 percent slower (no change).
- * Level 1 = 10% reduction, Level 10 = ~58.98% reduction.
+ * Special Power: Ascent Multiplier
+ * UpwardTap counter logic:
+ * (1) When the fish is starting to travel downward, set the upwardTap counter to zero
+ * (2) If the fish is traveling downward and the user taps, set the upwardTap counter to 1
+ * (3) If the fish is traveling upward and the user taps, add one to the tap counter
+ * (4) Every time the user taps, trigger the fish to flap upward with the following speed:
+ *     upwardSpeed = octopusMaxUpwardSpeed * (min(numberOfTaps, (currentFishLevel + 1)) / (currentFishLevel + 1))
  */
 export class ClownFishBehavior extends BaseFishBehavior {
   public readonly id: FishType = 'clownfish';
   public readonly name = 'Clown Fish';
   public readonly level: number;
-  public readonly powerTitle = 'Buoyant Glide';
+  public readonly powerTitle = 'Ascent Multiplier';
   public readonly powerDescription: string;
 
-  private readonly upwardMultiplier: number;
-  private readonly upwardReductionPercent: number;
-  private readonly DOWNWARD_SLOW_FACTOR: number = 0.90; // Fixed 10% slower
+  private upwardTap: number = 0;
+  private gravityTaps: number = 1;
 
   constructor(level: number = 1) {
     super();
     this.level = Math.max(1, level);
-    // User formula: upward_motion = (base_upward_motion) * (1 - 0.80 * (1 - Math.pow(7/8, fish_level)))
-    const reduction = 0.80 * (1 - Math.pow(7 / 8, this.level));
-    this.upwardReductionPercent = reduction * 100;
-    this.upwardMultiplier = 1 - reduction;
-    this.powerDescription = `Upward motion reduced by ${this.upwardReductionPercent.toFixed(1)}%, downward motion fixed 10% slower.`;
+    this.powerDescription = `Upward flap speed and downward gravity scale with consecutive upward taps: octopusValue * (min(taps, ${this.level + 1}) / ${this.level + 1}). Resets to 0 on descent.`;
   }
 
   public reset(): void {
-    // No state to reset
+    this.upwardTap = 0;
+    this.gravityTaps = 1;
   }
 
   public onFlap(bird: BirdState, config: PhysicsConfig): FishFlapResult {
+    // (2) If the fish is traveling downward (velocity >= 0) and the user taps, set the upwardTap counter to 1
+    // (3) If the fish is traveling upward (velocity < 0) and the user taps, add one to the tap counter
+    if (bird.velocity >= 0) {
+      this.upwardTap = 1;
+    } else {
+      this.upwardTap += 1;
+    }
+
+    this.gravityTaps = this.upwardTap;
+
+    // (4) Every time the user taps, trigger the fish to flap upward with the following speed:
+    // upwardSpeed = octopusMaxUpwardSpeed * (min(numberOfTaps, (currentFishLevel + 1)) / (currentFishLevel + 1))
+    const octopusMaxUpwardSpeed = Math.abs(config.jumpVelocity);
+    const numberOfTaps = this.upwardTap;
+    const currentFishLevel = this.level;
+    const upwardSpeed =
+      octopusMaxUpwardSpeed *
+      (Math.min(numberOfTaps, currentFishLevel + 1) / (currentFishLevel + 1));
+
     return {
-      velocity: config.jumpVelocity * this.upwardMultiplier,
+      velocity: -upwardSpeed,
       rotation: -0.36,
       spawnParticles: true,
     };
@@ -426,15 +449,24 @@ export class ClownFishBehavior extends BaseFishBehavior {
     let { y, velocity, rotation, wingFrame, wingTimer } = bird;
 
     if (alive) {
-      // Downward gravity is a fixed 10% slower (no change)
-      const effectiveGravity = config.gravity * this.DOWNWARD_SLOW_FACTOR;
-      const effectiveMaxFall = config.maxFallSpeed * this.DOWNWARD_SLOW_FACTOR;
+      // Downward force of gravity reflects the same formula:
+      // the more taps in a row accumulated while going up, the stronger the gravity,
+      // up to 100 percent of the standard (octopus) gravity if you have tapped fish level + 1 times
+      const gravityMultiplier =
+        Math.min(this.gravityTaps, this.level + 1) / (this.level + 1);
+      const effectiveGravity = config.gravity * gravityMultiplier;
+      const effectiveMaxFall = config.maxFallSpeed * Math.max(0.75, gravityMultiplier);
 
       velocity += effectiveGravity * dt;
       if (velocity > effectiveMaxFall) {
         velocity = effectiveMaxFall;
       }
       y += velocity * dt;
+
+      // (1) When the fish is starting to travel downward, set the upwardTap counter to zero
+      if (velocity >= 0) {
+        this.upwardTap = 0;
+      }
 
       if (velocity < 0) {
         rotation = rotation + (-0.36 - rotation) * Math.min(1, dt * 13);
@@ -453,17 +485,23 @@ export class ClownFishBehavior extends BaseFishBehavior {
       velocity += config.gravity * 1.2 * dt;
       y += velocity * dt;
       rotation = Math.min(1.57, rotation + dt * 12);
+      this.upwardTap = 0;
+      this.gravityTaps = 1;
     }
 
     // Clamps
     if (y < 12) {
       y = 12;
       velocity = 0;
+      this.upwardTap = 0;
+      this.gravityTaps = 1;
     }
     const groundY = config.virtualHeight - config.groundHeight - bird.height / 2;
     if (y >= groundY) {
       y = groundY;
       velocity = 0;
+      this.upwardTap = 0;
+      this.gravityTaps = 1;
     }
 
     return {
@@ -492,8 +530,12 @@ export class ClownFishBehavior extends BaseFishBehavior {
   }
 
   public getAbilityState(): FishAbilityState {
+    const gravityMultiplier =
+      Math.min(this.gravityTaps, this.level + 1) / (this.level + 1);
     return {
       fishType: 'clownfish',
+      fishLevel: this.level,
+      clownfishMaxTaps: this.level + 1,
       shieldState: 'used',
       shieldTimeRemaining: 0,
       shieldMaxDuration: 0,
@@ -504,6 +546,9 @@ export class ClownFishBehavior extends BaseFishBehavior {
       seahorseSwimTimeRemaining: 0,
       isSeahorseSettling: false,
       isBuoyantSlower: true,
+      clownfishUpwardTaps: this.upwardTap,
+      clownfishGravityTaps: this.gravityTaps,
+      clownfishGravityMultiplier: gravityMultiplier,
     };
   }
 }

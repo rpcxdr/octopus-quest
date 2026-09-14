@@ -189,15 +189,6 @@ export function drawFloatingFragment(
   ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
   ctx.fill();
 
-  // 6. Mini fragment badge label underneath
-  ctx.font = 'bold 8px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-  ctx.shadowBlur = 3;
-  ctx.fillText('FRAGMENT', 0, radius + 4);
-
   ctx.restore();
 }
 

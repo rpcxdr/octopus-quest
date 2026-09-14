@@ -499,18 +499,19 @@ function drawKelpColumn(
   topH: number,
   botY: number,
   botH: number,
-  capHeight: number,
+  _capHeight: number,
   tSec: number,
   colNum: number | undefined,
   palette: ColumnThemePalette
 ) {
   if (topH > 0) {
-    drawAtlantisMysticSpireBody(ctx, x, 0, w, topH - capHeight, true, tSec, colNum, palette);
-    drawAtlantisMysticCap(ctx, x - 4, topH - capHeight, w + 8, capHeight, true, tSec, undefined, palette);
+    drawAtlantisMysticSpireBody(ctx, x, 0, w, topH, true, tSec, colNum, palette);
   }
   if (botH > 0) {
-    drawAtlantisMysticCap(ctx, x - 4, botY, w + 8, capHeight, false, tSec, colNum, palette);
-    drawAtlantisMysticSpireBody(ctx, x, botY + capHeight, w, botH - capHeight, false, tSec, colNum, palette);
+    drawAtlantisMysticSpireBody(ctx, x, botY, w, botH, false, tSec, colNum, palette);
+    if (colNum !== undefined) {
+      drawAtlantisMedallionBadge(ctx, x + w / 2, botY + 16, colNum, palette);
+    }
   }
 }
 
@@ -537,28 +538,19 @@ function drawAtlantisMysticSpireBody(
 
   const colVariant = (((colNum !== undefined ? colNum : Math.floor(x / 75)) % 4) + 4) % 4;
 
-  // 1. Transparent Crystalline Background
-  // Multi-stop translucent gradient: ocean background clearly visible through the column
-  const crystalGrad = ctx.createLinearGradient(x, 0, x + w, 0);
-  crystalGrad.addColorStop(0, palette.bodyGradient[0]);
-  crystalGrad.addColorStop(0.22, palette.bodyGradient[1]);
-  crystalGrad.addColorStop(0.5, palette.bodyGradient[2]);
-  crystalGrad.addColorStop(0.78, palette.bodyGradient[1]);
-  crystalGrad.addColorStop(1, palette.bodyGradient[3]);
-  ctx.fillStyle = crystalGrad;
+  // 1. Transparent Crystalline Background (flat translucent fills for zero allocation overhead)
+  ctx.fillStyle = palette.bodyGradient[1];
   ctx.fillRect(x, y, w, h);
 
-  // Inner crystalline refraction chamber (soft prismatic glass light)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+  // Soft inner refraction band
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
   ctx.fillRect(x + 4, y, w - 8, h);
 
-  // Specular facet lines & internal crystal reflection
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.32)';
-  ctx.fillRect(x + 2, y, 1.5, h); // Left high specular sheen
-  ctx.fillStyle = palette.accentGlow;
-  ctx.fillRect(x + 6, y, 1, h); // Prismatic refraction band
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
-  ctx.fillRect(x + w - 3, y, 1.5, h); // Right inner shadow
+  // Left specular sheen & right inner shadow
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+  ctx.fillRect(x + 2, y, 1.5, h);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+  ctx.fillRect(x + w - 3, y, 1.5, h);
 
   // Outer glowing crystal border
   ctx.strokeStyle = palette.borderColor;
@@ -567,75 +559,375 @@ function drawAtlantisMysticSpireBody(
 
   // 2. Subtle Animation: Pulsing Central Energy Conduit
   const corePulse = 0.55 + 0.45 * Math.sin(tSec * 2.2 + (colNum || 0) * 1.3);
-  const coreGrad = ctx.createLinearGradient(x + w / 2 - 6, 0, x + w / 2 + 6, 0);
-  coreGrad.addColorStop(0, 'rgba(34, 211, 238, 0)');
-  coreGrad.addColorStop(0.5, `rgba(56, 189, 248, ${0.42 * corePulse})`);
-  coreGrad.addColorStop(1, 'rgba(34, 211, 238, 0)');
-  ctx.fillStyle = coreGrad;
-  ctx.fillRect(x + w / 2 - 6, y, 12, h);
-
-  ctx.fillStyle = `rgba(255, 255, 255, ${0.58 * corePulse})`;
+  ctx.fillStyle = `rgba(56, 189, 248, ${0.32 * corePulse})`;
+  ctx.fillRect(x + w / 2 - 5, y, 10, h);
+  ctx.fillStyle = `rgba(255, 255, 255, ${0.65 * corePulse})`;
   ctx.fillRect(x + w / 2 - 1, y, 2, h);
 
-  // 3. Subtle Animation: Ascending Mystic Light Motes / Atlantean Sparkles
+  // 3. Subtle Animation: Lightweight Ascending Mystic Light Motes (2 per column)
   const seedBase = Math.abs(Math.floor(x * 0.17)) + (colNum || 0) * 19;
-  const moteCount = Math.min(6, Math.max(3, Math.floor(h / 35)));
-  for (let m = 0; m < moteCount; m++) {
-    const mSeed = (seedBase * 37 + m * 59) % 1000;
-    const speed = 16 + (mSeed % 14);
+  for (let m = 0; m < 2; m++) {
+    const speed = 18 + m * 8;
     const cycle = Math.max(30, h);
-    const my = y + ((mSeed * 13 + (cycle - (tSec * speed) % cycle)) % cycle);
-    const sway = Math.sin(tSec * 1.8 + m * 1.2) * 3;
-    const mx = x + 8 + (mSeed % Math.max(1, w - 16)) + sway;
-    const mRadius = 1.2 + (mSeed % 3) * 0.5;
-    const mAlpha = 0.35 + 0.35 * Math.sin(tSec * 2.5 + m);
-
-    ctx.fillStyle =
-      m % 2 === 0
-        ? `rgba(56, 189, 248, ${mAlpha})`
-        : `rgba(251, 191, 36, ${mAlpha * 0.9})`;
+    const my = y + ((seedBase * 31 + m * 47 + (cycle - (tSec * speed) % cycle)) % cycle);
+    const mx = x + 10 + ((seedBase + m * 23) % Math.max(1, w - 20));
+    ctx.fillStyle = m === 0 ? 'rgba(56, 189, 248, 0.6)' : 'rgba(251, 191, 36, 0.6)';
     ctx.beginPath();
-    ctx.arc(mx, my, mRadius, 0, Math.PI * 2);
+    ctx.arc(mx, my, 1.3, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // 4. Subtle Animation: Caustic Wave Sheen drifting along the crystal
-  const waveY = y + ((tSec * 38 + (colNum || 0) * 25) % Math.max(40, h));
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-  ctx.beginPath();
-  ctx.ellipse(x + w / 2, waveY, w * 0.42, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // 4. Subtle Animation: Caustic Sheen Drifting Along the Crystal
+  const waveY = y + ((tSec * 35 + (colNum || 0) * 25) % Math.max(40, h));
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.fillRect(x + 3, waveY, w - 6, 4);
 
-  // 5. Orichalcum Filigree Framework Braces (Sunken Gold Clasps)
-  const bandSpacing = 68;
+  // 5. Orichalcum Filigree Framework Braces (Spacing increased to 85 for lower draw overhead)
+  const bandSpacing = 85;
   const startBandY = isTop ? y + h - 16 : y + 16;
   const bracePositions: number[] = [startBandY];
-  if (h > 90) {
-    for (let by = y + 36; by < y + h - 30; by += bandSpacing) {
+  if (h > 100) {
+    for (let by = y + 42; by < y + h - 35; by += bandSpacing) {
       bracePositions.push(by);
     }
   }
-
   for (const by of bracePositions) {
     drawOrichalcumBrace(ctx, x + 2, by, w - 4, palette, tSec);
   }
 
-  // 6. 4 Distinct Architectural Variations & Sacred Atlantean Glyphs
+  // 6. Sacred Atlantean Architectural Variations
   drawAtlantisSpireVariation(ctx, x, y, w, h, colVariant, tSec, palette);
 
-  // 7. Secondary Inscribed Ancient Glyphs Along Tall Columns
-  if (h > 120) {
-    const glyphSpacing = 55;
-    let idx = 0;
-    for (let gy = y + 45; gy < y + h - 45; gy += glyphSpacing) {
-      if (Math.abs(gy - (y + h * 0.5)) > 26) {
-        drawSmallAtlantisGlyph(ctx, x + w / 2, gy, idx, tSec, palette);
-        idx++;
+  // 7. Centered Ancient Glyph along Tall Columns
+  if (h > 130) {
+    drawSmallAtlantisGlyph(ctx, x + w / 2, y + h * 0.5, (colNum || 0) % 3, tSec, palette);
+  }
+
+  // 8. Broken Ancient Mossy Atlantean Stone Facade in Front
+  drawAncientMossyStoneFacade(ctx, x, y, w, h, isTop, tSec, colNum, palette);
+
+  ctx.restore();
+}
+
+/**
+ * High-performance foreground layer of ancient broken and mossy Atlantean stones:
+ * - Uses cyclopean 34px megalithic courses (reduces block calculations by ~35%)
+ * - Pure flat fills with 1px highlights/shadows (zero per-frame CanvasGradient allocations)
+ * - Broken apertures reveal the glowing crystal core behind with ambient drop shadows
+ * - Optimized 2-stamp clinging moss clusters and lightweight fracture strokes
+ */
+function drawAncientMossyStoneFacade(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  isTop: boolean,
+  tSec: number,
+  colNum: number | undefined,
+  palette: ColumnThemePalette
+) {
+  if (h <= 4) return;
+  ctx.save();
+
+  const seed = Math.abs((colNum !== undefined ? colNum * 79 : Math.floor(x * 0.41)) + (isTop ? 131 : 317)) % 10000;
+  const courseH = 34;
+  const numCourses = Math.ceil(h / courseH);
+
+  for (let c = 0; c < numCourses; c++) {
+    const rowY = y + c * courseH;
+    const rowH = Math.min(courseH, y + h - rowY);
+    if (rowH < 4) continue;
+
+    const courseSeed = (seed + c * 59) % 1000;
+    const splitRatio = c % 2 === 0 ? 0.56 : 0.44;
+    const w1 = Math.floor(w * splitRatio);
+    const w2 = w - w1;
+
+    const blocks = [
+      { bx: x, bw: w1, blockId: 0 },
+      { bx: x + w1, bw: w2, blockId: 1 },
+    ];
+
+    for (const blk of blocks) {
+      const bSeed = (courseSeed * 23 + blk.blockId * 97) % 1000;
+      const roll = bSeed % 100;
+
+      if (roll < 28) {
+        // FALLEN STONE: reveals the glowing crystal chamber behind!
+        drawFallenStoneBreach(ctx, blk.bx, rowY, blk.bw, rowH, bSeed, palette, tSec);
+      } else if (roll < 58) {
+        // CHIPPED STONE: block with sheared corner exposing a crystalline wedge
+        drawChippedStoneBlock(ctx, blk.bx, rowY, blk.bw, rowH, bSeed, palette, tSec);
+      } else {
+        // INTACT STONE: weathered mossy stone block with bevels and cracks
+        drawIntactStoneBlock(ctx, blk.bx, rowY, blk.bw, rowH, bSeed, palette, tSec);
       }
     }
   }
 
+  // Draw 1 lightweight hanging moss tendril off broken edges if tall
+  if (h > 90) {
+    drawMossTendrils(ctx, x, y, w, h, seed, tSec);
+  }
+
   ctx.restore();
+}
+
+/**
+ * Fast cavity where an ancient stone has fallen away, revealing the crystal behind
+ */
+function drawFallenStoneBreach(
+  ctx: CanvasRenderingContext2D,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  bSeed: number,
+  palette: ColumnThemePalette,
+  tSec: number
+) {
+  // Ambient drop shadows on crystal without gradient objects
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillRect(bx, by, bw, Math.min(4, bh));
+  ctx.fillRect(bx, by, Math.min(3.5, bw), bh);
+
+  // Glowing rim light on fracture lips
+  const glowPulse = 0.65 + 0.35 * Math.sin(tSec * 2.8 + bSeed * 0.1);
+  ctx.strokeStyle = palette.accentPrimary;
+  ctx.lineWidth = 1.2;
+  ctx.globalAlpha = glowPulse * 0.85;
+
+  ctx.beginPath();
+  ctx.moveTo(bx, by);
+  ctx.lineTo(bx + bw * 0.5, by + 1.2);
+  ctx.lineTo(bx + bw, by);
+  ctx.moveTo(bx, by + bh);
+  ctx.lineTo(bx + bw * 0.5, by + bh - 1.2);
+  ctx.lineTo(bx + bw, by + bh);
+  ctx.stroke();
+
+  ctx.globalAlpha = 1.0;
+
+  // Small corner debris shard
+  ctx.fillStyle = '#1a2633';
+  ctx.fillRect(bx + 1, by + 1, 3.5, 3.5);
+  ctx.fillStyle = '#15803d';
+  ctx.fillRect(bx + 1, by + 1, 2, 1.5);
+}
+
+/**
+ * Fast stone block where a jagged corner has sheared off, exposing a crystalline wedge
+ */
+function drawChippedStoneBlock(
+  ctx: CanvasRenderingContext2D,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  bSeed: number,
+  palette: ColumnThemePalette,
+  tSec: number
+) {
+  const sx = bx + 1;
+  const sy = by + 1;
+  const sw = bw - 2;
+  const sh = bh - 2;
+  if (sw <= 4 || sh <= 4) return;
+
+  const chipCorner = bSeed % 4;
+  const chipW = Math.min(sw * 0.5, 14);
+  const chipH = Math.min(sh * 0.7, 18);
+
+  ctx.beginPath();
+  if (chipCorner === 0) {
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + sw - chipW, sy);
+    ctx.lineTo(sx + sw, sy + chipH);
+    ctx.lineTo(sx + sw, sy + sh);
+    ctx.lineTo(sx, sy + sh);
+  } else if (chipCorner === 1) {
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + sw, sy);
+    ctx.lineTo(sx + sw, sy + sh - chipH);
+    ctx.lineTo(sx + sw - chipW, sy + sh);
+    ctx.lineTo(sx, sy + sh);
+  } else if (chipCorner === 2) {
+    ctx.moveTo(sx + chipW, sy);
+    ctx.lineTo(sx + sw, sy);
+    ctx.lineTo(sx + sw, sy + sh);
+    ctx.lineTo(sx, sy + sh);
+    ctx.lineTo(sx, sy + chipH);
+  } else {
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + sw, sy);
+    ctx.lineTo(sx + sw, sy + sh);
+    ctx.lineTo(sx + chipW, sy + sh);
+    ctx.lineTo(sx, sy + sh - chipH);
+  }
+  ctx.closePath();
+
+  // Solid stone fill
+  ctx.fillStyle = '#22303c';
+  ctx.fill();
+
+  // Highlight border
+  ctx.strokeStyle = '#465d73';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Glowing rim-light along the break edge
+  const glowPulse = 0.65 + 0.35 * Math.sin(tSec * 3 + bSeed * 0.2);
+  ctx.strokeStyle = palette.accentPrimary;
+  ctx.lineWidth = 1.3;
+  ctx.globalAlpha = glowPulse * 0.9;
+  ctx.beginPath();
+  if (chipCorner === 0) {
+    ctx.moveTo(sx + sw - chipW, sy);
+    ctx.lineTo(sx + sw, sy + chipH);
+  } else if (chipCorner === 1) {
+    ctx.moveTo(sx + sw, sy + sh - chipH);
+    ctx.lineTo(sx + sw - chipW, sy + sh);
+  } else if (chipCorner === 2) {
+    ctx.moveTo(sx + chipW, sy);
+    ctx.lineTo(sx, sy + chipH);
+  } else {
+    ctx.moveTo(sx, sy + sh - chipH);
+    ctx.lineTo(sx + chipW, sy + sh);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1.0;
+
+  // Clinging Moss on intact corner
+  drawBlockMoss(ctx, sx, sy, sw, sh, bSeed);
+}
+
+/**
+ * Fast intact weathered stone block with crisp bevels and cracks
+ */
+function drawIntactStoneBlock(
+  ctx: CanvasRenderingContext2D,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  bSeed: number,
+  palette: ColumnThemePalette,
+  tSec: number
+) {
+  const sx = bx + 1;
+  const sy = by + 1;
+  const sw = bw - 2;
+  const sh = bh - 2;
+  if (sw <= 2 || sh <= 2) return;
+
+  // Solid stone fill (zero gradient allocation)
+  ctx.fillStyle = '#22303c';
+  ctx.fillRect(sx, sy, sw, sh);
+
+  // 3D Bevels: Top highlight & bottom/right shadows
+  ctx.fillStyle = '#465d73';
+  ctx.fillRect(sx, sy, sw, 1);
+  ctx.fillRect(sx, sy, 1, sh);
+
+  ctx.fillStyle = '#0c1218';
+  ctx.fillRect(sx, sy + sh - 1.2, sw, 1.2);
+  ctx.fillRect(sx + sw - 1.2, sy, 1.2, sh);
+
+  // Weathering hairline crack
+  if (bSeed % 2 === 0) {
+    const crackStartX = sx + 4 + (bSeed % Math.max(1, sw - 8));
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(crackStartX, sy + 1);
+    ctx.lineTo(crackStartX + (bSeed % 4 - 2), sy + sh - 2);
+    ctx.stroke();
+
+    // Glowing fissure vein on select stones
+    if (bSeed % 4 === 0) {
+      ctx.strokeStyle = palette.accentPrimary;
+      ctx.lineWidth = 0.8;
+      ctx.globalAlpha = 0.45;
+      ctx.beginPath();
+      ctx.moveTo(crackStartX, sy + 2);
+      ctx.lineTo(crackStartX + (bSeed % 4 - 2), sy + sh * 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+  }
+
+  // Clinging Moss
+  drawBlockMoss(ctx, sx, sy, sw, sh, bSeed);
+}
+
+/**
+ * Lightweight 2-stamp moss cluster (reduced from 6 path operations to 2)
+ */
+function drawBlockMoss(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number,
+  bSeed: number
+) {
+  const mossLocation = bSeed % 4;
+  let mx = sx + 2.5;
+  let my = sy + 2.5;
+
+  if (mossLocation === 1) {
+    mx = sx + 2.5;
+    my = sy + sh - 4;
+  } else if (mossLocation === 2) {
+    mx = sx + sw - 6;
+    my = sy + sh - 4;
+  } else if (mossLocation === 3) {
+    mx = sx + sw - 6;
+    my = sy + 2.5;
+  }
+
+  // Base dark green
+  ctx.fillStyle = '#064e3b';
+  ctx.beginPath();
+  ctx.arc(mx, my, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Spore highlight tip
+  ctx.fillStyle = '#22c55e';
+  ctx.beginPath();
+  ctx.arc(mx + 1, my - 0.5, 1.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * Single lightweight swaying sea-moss tendril
+ */
+function drawMossTendrils(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  seed: number,
+  tSec: number
+) {
+  const ty = y + 25 + (seed % Math.max(10, h - 45));
+  const isLeft = seed % 2 === 0;
+  const tx = isLeft ? x : x + w;
+  const sway = Math.sin(tSec * 2.2) * 2.5;
+
+  ctx.strokeStyle = '#15803d';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.quadraticCurveTo(tx + (isLeft ? -sway : sway), ty + 6, tx + (isLeft ? -sway * 1.3 : sway * 1.3), ty + 12);
+  ctx.stroke();
+
+  ctx.fillStyle = '#4ade80';
+  ctx.beginPath();
+  ctx.arc(tx + (isLeft ? -sway * 1.3 : sway * 1.3), ty + 12, 1.2, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 /**
@@ -698,14 +990,12 @@ function drawAtlantisSpireVariation(
       ctx.fillRect(x + 9, y, 1.5, h);
       ctx.fillRect(x + w - 10.5, y, 1.5, h);
 
-      // Inscribed glowing Poseidon Trident emblem
+      // Inscribed Poseidon Trident emblem (no expensive shadow blur)
       if (h >= 45) {
         const tridentGlow = 0.65 + 0.35 * Math.sin(tSec * 2.0);
         ctx.save();
         ctx.strokeStyle = `rgba(34, 211, 238, ${tridentGlow})`;
         ctx.lineWidth = 1.6;
-        ctx.shadowColor = palette.accentPrimary;
-        ctx.shadowBlur = 6;
 
         // Central trident shaft
         ctx.beginPath();
@@ -740,8 +1030,8 @@ function drawAtlantisSpireVariation(
 
     // Variation 1: The Concentric Sunken Canals of Atlantis (Plato's Sacred Rings)
     case 1: {
-      // Diagonal criss-cross orichalcum diamond trellis filigree
-      const step = 28;
+      // Diagonal criss-cross orichalcum diamond trellis filigree (step 36 for fewer draw operations)
+      const step = 36;
       ctx.save();
       ctx.strokeStyle = 'rgba(251, 191, 36, 0.22)';
       ctx.lineWidth = 1;
@@ -795,12 +1085,12 @@ function drawAtlantisSpireVariation(
 
     // Variation 2: The Temple of the Tide (Oceanic Vortex & Wave Filaments)
     case 2: {
-      // Dual undulating sine-wave energy filaments running down the crystal
+      // Dual undulating sine-wave energy filaments (step 12 instead of 4 cuts calculations by 66%)
       ctx.save();
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
-      for (let py = y; py <= y + h; py += 4) {
+      for (let py = y; py <= y + h; py += 12) {
         const wave1 = Math.sin(tSec * 2.8 + py * 0.05) * 7;
         if (py === y) ctx.moveTo(cx + wave1, py);
         else ctx.lineTo(cx + wave1, py);
@@ -809,7 +1099,7 @@ function drawAtlantisSpireVariation(
 
       ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
       ctx.beginPath();
-      for (let py = y; py <= y + h; py += 4) {
+      for (let py = y; py <= y + h; py += 12) {
         const wave2 = Math.sin(tSec * 2.8 + py * 0.05 + Math.PI) * 7;
         if (py === y) ctx.moveTo(cx + wave2, py);
         else ctx.lineTo(cx + wave2, py);
@@ -843,7 +1133,7 @@ function drawAtlantisSpireVariation(
     // Variation 3: The Astral Compass of Poseidon
     case 3: {
       // Segmented crystal resonator plates
-      const segStep = 36;
+      const segStep = 45;
       ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
       for (let sy = y + 10; sy < y + h - 10; sy += segStep) {
         ctx.fillRect(x + 7, sy, w - 14, 2);
@@ -965,23 +1255,47 @@ function drawAtlantisMysticCap(
   ctx.fillStyle = palette.borderColor;
   ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
 
-  // 2. Stepped Cornice Gradient Body
-  const capGrad = ctx.createLinearGradient(x, 0, x + w, 0);
-  capGrad.addColorStop(0, palette.capGradient[0]);
-  capGrad.addColorStop(0.25, palette.capGradient[1]);
-  capGrad.addColorStop(0.7, palette.capGradient[2]);
-  capGrad.addColorStop(1, palette.capGradient[3]);
-  ctx.fillStyle = capGrad;
+  // 2. Weathered Ancient Carved Atlantean Stone Cornice Body (solid high-performance fills)
+  ctx.fillStyle = '#243444';
   ctx.fillRect(x, y, w, h);
 
-  // 3. Polished Orichalcum Gold Frieze Trim Line
-  const goldTrimY = isTop ? y + h - 5 : y + 3;
-  ctx.fillStyle = palette.accentSecondary;
-  ctx.fillRect(x + 2, goldTrimY, w - 4, 2.5);
-  ctx.fillStyle = '#fef08a';
-  ctx.fillRect(x + 2, goldTrimY, w - 4, 0.8);
+  // 3D Stone Bevels
+  ctx.fillStyle = '#475e74';
+  ctx.fillRect(x, y, w, 1.5); // Top highlight bevel
+  ctx.fillStyle = '#0a1017';
+  ctx.fillRect(x, y + h - 1.5, w, 1.5); // Bottom shadow bevel
 
-  // 4. Stepped Corner Gold Brackets
+  // 3. Chipped Stone Corner on Cap revealing the glowing mystical crystal underneath
+  const chipLeft = (columnNumber || 0) % 2 === 0;
+  const chipW = 10;
+  const chipH = Math.min(8, h - 4);
+  const chipX = chipLeft ? x + 1 : x + w - chipW - 1;
+  const chipY = isTop ? y + h - chipH - 1 : y + 1;
+
+  // Crystal glow shining through the broken cap corner
+  const capCrystalPulse = 0.65 + 0.35 * Math.sin(tSec * 3 + x * 0.05);
+  ctx.fillStyle = palette.accentPrimary;
+  ctx.globalAlpha = capCrystalPulse * 0.85;
+  ctx.fillRect(chipX, chipY, chipW, chipH);
+  ctx.globalAlpha = 1.0;
+
+  // Fracture rim on cap
+  ctx.strokeStyle = palette.accentPrimary;
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(chipX, chipY, chipW, chipH);
+
+  // Inner depth shadow in fracture
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillRect(chipX, chipY, chipW, 2);
+
+  // 4. Polished Orichalcum Gold Frieze Trim Line (weathered inlay)
+  const goldTrimY = isTop ? y + h - 6 : y + 4;
+  ctx.fillStyle = palette.accentSecondary;
+  ctx.fillRect(x + 3, goldTrimY, w - 6, 2.5);
+  ctx.fillStyle = '#fef08a';
+  ctx.fillRect(x + 3, goldTrimY, w - 6, 0.8);
+
+  // 5. Stepped Corner Gold Brackets
   ctx.fillStyle = palette.accentSecondary;
   const bracketY = isTop ? y + h - 9 : y + 1;
   ctx.fillRect(x + 1, bracketY, 6, 8);
@@ -990,14 +1304,23 @@ function drawAtlantisMysticCap(
   ctx.fillRect(x + 2, bracketY + 1, 2, 6);
   ctx.fillRect(x + w - 4, bracketY + 1, 2, 6);
 
-  // 5. Specular Vertical Highlight on Cap Face
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-  ctx.fillRect(x + 7, y + 2, 3, h - 4);
+  // 6. Clinging Ancient Moss Tufts on the Stone Cornice (simplified 2-stamp clusters)
+  ctx.fillStyle = '#064e3b';
+  ctx.beginPath();
+  ctx.arc(x + 5, isTop ? y + h - 2 : y + 2, 3, 0, Math.PI * 2);
+  ctx.arc(x + w - 6, isTop ? y + 2 : y + h - 2, 3, 0, Math.PI * 2);
+  ctx.fill();
 
-  // 6. Brilliant Pulsing Apex Power Crystal pointing into the gap
+  ctx.fillStyle = '#22c55e';
+  ctx.beginPath();
+  ctx.arc(x + 5.5, isTop ? y + h - 2 : y + 2, 1.5, 0, Math.PI * 2);
+  ctx.arc(x + w - 5.5, isTop ? y + 2 : y + h - 2, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 7. Brilliant Pulsing Apex Power Crystal pointing into the gap
   drawApexPowerCrystal(ctx, x + w / 2, isTop ? y + h : y, isTop, tSec, palette);
 
-  // 7. Sunken Atlantean Seal / Column Number Medallion
+  // 8. Sunken Atlantean Seal / Column Number Medallion
   if (columnNumber !== undefined && !isTop) {
     drawAtlantisMedallionBadge(ctx, x + w / 2, y + h / 2, columnNumber, palette);
   }
@@ -1020,13 +1343,16 @@ function drawApexPowerCrystal(
   const dir = isTop ? 1 : -1;
   const crystalCenterY = edgeY + dir * 6;
   const crystalHalfW = 6;
-  const crystalHalfH = 8;
   const crystalTipY = edgeY + dir * 14;
 
-  // Pulsing glow aura
+  // Lightweight pulsing glow aura (alpha blend without expensive software shadowBlur)
   const auraPulse = 0.65 + 0.35 * Math.sin(tSec * 3.5 + cx * 0.05);
-  ctx.shadowColor = palette.accentPrimary;
-  ctx.shadowBlur = 10 * auraPulse;
+  ctx.fillStyle = palette.accentPrimary;
+  ctx.globalAlpha = 0.28 * auraPulse;
+  ctx.beginPath();
+  ctx.arc(cx, crystalCenterY, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1.0;
 
   // Faceted Rhombus Crystal
   // Left facet (medium shadow)
@@ -2809,7 +3135,7 @@ export function drawBird(
       drawPufferFish(ctx, bird, skin, time);
       break;
     case 'clownfish':
-      drawClownFish(ctx, bird, time);
+      drawClownFish(ctx, bird, time, abilityState);
       break;
     case 'singray':
       drawSingRay(ctx, bird, skin, time);
@@ -2829,6 +3155,8 @@ export function drawBird(
       drawBubbleShield(ctx, bird.x, bird.y, abilityState.shieldTimeRemaining, time);
     } else if (fishType === 'seahorse') {
       drawSeahorseDirectionCue(ctx, bird, abilityState.seahorseNextDirection, time);
+    } else if (fishType === 'clownfish') {
+      drawClownFishEffortIndicator(ctx, bird, abilityState, time);
     }
   }
 }
@@ -3277,8 +3605,15 @@ function drawPufferFish(
 /**
  * CLOWN FISH (Best 10-14):
  * Vibrant orange body with 3 bold white bands trimmed in black, undulating fins.
+ * Swimming effort dynamically intensifies (rapid tail flutter, fin thrust, cavitation bubbles)
+ * as upwardTap percentage scales toward maximum.
  */
-function drawClownFish(ctx: CanvasRenderingContext2D, bird: BirdState, time: number) {
+function drawClownFish(
+  ctx: CanvasRenderingContext2D,
+  bird: BirdState,
+  time: number,
+  abilityState?: FishAbilityState
+) {
   ctx.save();
   ctx.translate(bird.x, bird.y);
   ctx.rotate(bird.rotation);
@@ -3287,22 +3622,31 @@ function drawClownFish(ctx: CanvasRenderingContext2D, bird: BirdState, time: num
   const isSwimmingUp = bird.velocity < -50;
   const isDiving = bird.velocity > 120;
 
-  // Ambient coral orange glow
-  const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, 34);
-  halo.addColorStop(0, 'rgba(249, 115, 22, 0.45)');
-  halo.addColorStop(0.6, 'rgba(234, 88, 12, 0.15)');
+  // Swimming effort metrics from upwardTap counter
+  const currentTaps = abilityState?.clownfishUpwardTaps ?? 0;
+  const maxTaps = (abilityState?.fishLevel ?? 1) + 1;
+  const effortRatio = Math.min(1, Math.max(0, currentTaps / maxTaps));
+
+  // Ambient coral orange / aqua pressure halo that expands with swimming effort
+  const haloR = 34 + effortRatio * 12;
+  const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, haloR);
+  halo.addColorStop(0, `rgba(249, 115, 22, ${0.45 + effortRatio * 0.25})`);
+  halo.addColorStop(0.5, `rgba(56, 189, 248, ${effortRatio * 0.25})`);
   halo.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(0, 0, 34, 0, Math.PI * 2);
+  ctx.arc(0, 0, haloR, 0, Math.PI * 2);
   ctx.fill();
 
-  const stretchX = isSwimmingUp ? 1.05 : (isDiving ? 0.95 : 1.0);
-  const stretchY = isSwimmingUp ? 0.95 : (isDiving ? 1.05 : 1.0);
+  const stretchX = isSwimmingUp ? 1.05 + effortRatio * 0.08 : (isDiving ? 0.95 : 1.0);
+  const stretchY = isSwimmingUp ? 0.95 - effortRatio * 0.05 : (isDiving ? 1.05 : 1.0);
   ctx.scale(stretchX, stretchY);
 
-  // Wavy caudal tail fin
-  const tailAngle = Math.sin(tSec * 13) * 0.25;
+  // Wavy caudal tail fin - stroke frequency and amplitude visibly scale with effort!
+  const tailFreq = 13 + effortRatio * 24; // 13 rad/s up to 37 rad/s rapid flutter
+  const tailAmp = 0.25 + effortRatio * 0.18; // wider, punchier propulsion
+  const tailAngle = Math.sin(tSec * tailFreq) * tailAmp;
+
   ctx.save();
   ctx.translate(-13, 0);
   ctx.rotate(tailAngle);
@@ -3325,16 +3669,44 @@ function drawClownFish(ctx: CanvasRenderingContext2D, bird: BirdState, time: num
   ctx.fill();
   ctx.restore();
 
-  // Curved dorsal fin on back
+  // Dynamic Cavitation Micro-Bubbles from vigorous tail kicks under swimming effort
+  if (effortRatio > 0 && bird.alive) {
+    const bubbleCount = Math.floor(2 + effortRatio * 4);
+    for (let b = 0; b < bubbleCount; b++) {
+      const bCycle = (tSec * (4.5 + effortRatio * 6) + b * 0.22) % 1;
+      const bDist = 17 + bCycle * (22 + effortRatio * 32);
+      const bY = Math.sin(tSec * tailFreq + b * 2) * (4 + effortRatio * 6);
+      const bAlpha = (1 - bCycle) * (0.35 + effortRatio * 0.55);
+      const bR = 1.0 + bCycle * (1.6 + effortRatio * 1.4);
+
+      if (bAlpha > 0.08) {
+        ctx.save();
+        ctx.fillStyle = `rgba(224, 242, 254, ${bAlpha})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${bAlpha * 0.9})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(-bDist, bY, bR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  // Curved dorsal fin on back - flutters energetically with swimming effort
+  const dorsalFlutter = Math.sin(tSec * (tailFreq * 0.7)) * (0.05 + effortRatio * 0.12);
+  ctx.save();
+  ctx.rotate(dorsalFlutter);
   ctx.fillStyle = '#ea580c';
   ctx.strokeStyle = '#020617';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(-7, -8);
-  ctx.quadraticCurveTo(-2, -15, 4, -9);
+  ctx.quadraticCurveTo(-2, -15 - effortRatio * 2, 4, -9);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
+  ctx.restore();
 
   // Body Base
   ctx.fillStyle = '#020617';
@@ -3375,8 +3747,11 @@ function drawClownFish(ctx: CanvasRenderingContext2D, bird: BirdState, time: num
   ctx.fill();
   ctx.stroke();
 
-  // Pectoral fin (flapping with swim cycle)
-  const finAngle = bird.wingFrame === 0 ? -0.4 : bird.wingFrame === 1 ? 0.0 : 0.38;
+  // Pectoral fin (flapping with swim cycle + high-frequency effort flutter)
+  const baseFinAngle = bird.wingFrame === 0 ? -0.4 : bird.wingFrame === 1 ? 0.0 : 0.38;
+  const effortPectoralFlutter = Math.sin(tSec * (16 + effortRatio * 26)) * (effortRatio * 0.32);
+  const finAngle = baseFinAngle + effortPectoralFlutter;
+
   ctx.save();
   ctx.translate(0, 2);
   ctx.rotate(finAngle);
@@ -3389,14 +3764,298 @@ function drawClownFish(ctx: CanvasRenderingContext2D, bird: BirdState, time: num
   ctx.stroke();
   ctx.restore();
 
-  // Mouth
+  // Mouth - opens slightly during peak exertion for breath/aeration
   ctx.fillStyle = '#020617';
   ctx.beginPath();
-  ctx.arc(13, 1, 1.4, 0, Math.PI * 2);
+  const mouthR = 1.4 + effortRatio * 0.8;
+  ctx.arc(13, 1, mouthR, 0, Math.PI * 2);
   ctx.fill();
 
   // Eye
   drawSimpleFishEye(ctx, 8, -3, 5, bird.alive, isSwimmingUp);
+
+  ctx.restore();
+}
+
+/**
+ * Dynamic Underwater Hydro-Vortex & Bubble Pearl Gauge for Clown Fish
+ * Purely visual, non-verbal indicator orbiting around the fish:
+ * - Hydrodynamic swirling current ring that fills proportionately to upwardTap percentage
+ * - Current spin velocity accelerates with effort
+ * - Iridescent bubble-pearl pips around perimeter indicating active tap level
+ * - Hydrodynamic cavitation streamlines trailing off flanks under effort
+ * - Radiant pulse shockwave at 100% effort
+ */
+function drawClownFishEffortIndicator(
+  ctx: CanvasRenderingContext2D,
+  bird: BirdState,
+  abilityState: FishAbilityState,
+  time: number
+) {
+  if (!bird.alive) return;
+
+  const currentTaps = abilityState.clownfishUpwardTaps ?? 0;
+  const maxTaps = (abilityState.fishLevel ?? 1) + 1;
+  const effortRatio = Math.min(1, Math.max(0, currentTaps / maxTaps));
+  const tSec = time / 1000;
+
+  ctx.save();
+  ctx.translate(bird.x, bird.y);
+
+  // Orbit radius comfortably framing the clownfish
+  const radius = 26;
+
+  // 1. Faint underwater current orbit guide
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = currentTaps > 0 ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 2. Active Hydrodynamic Swirling Arc (fills with upwardTap percentage)
+  if (effortRatio > 0) {
+    const startAngle = -Math.PI / 2;
+    const sweepAngle = effortRatio * Math.PI * 2;
+    const endAngle = startAngle + sweepAngle;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, startAngle, endAngle);
+
+    // Current gradient: from vibrant seafoam cyan to radiant clownfish coral/amber
+    const arcGrad = ctx.createLinearGradient(-radius, -radius, radius, radius);
+    arcGrad.addColorStop(0, 'rgba(56, 189, 248, 0.95)');
+    arcGrad.addColorStop(0.5, 'rgba(249, 115, 22, 0.95)');
+    arcGrad.addColorStop(1, 'rgba(251, 191, 36, 1.0)');
+
+    ctx.strokeStyle = arcGrad;
+    ctx.lineWidth = 2.4 + effortRatio * 1.2;
+    ctx.lineCap = 'round';
+
+    // Dashed vortex current that spins faster as effort increases
+    ctx.setLineDash([7, 3.5]);
+    ctx.lineDashOffset = -tSec * (35 + effortRatio * 85);
+
+    // Subtle water glow around the current
+    ctx.shadowColor = effortRatio >= 1 ? '#fbbf24' : '#38bdf8';
+    ctx.shadowBlur = 4 + effortRatio * 6;
+    ctx.stroke();
+    ctx.restore();
+
+    // 3. Peak Effort (100%) Water-Burst Pulse Ring
+    if (effortRatio >= 1) {
+      const pulseCycle = (tSec * 2.8) % 1;
+      const pulseR = radius + pulseCycle * 10;
+      const pulseAlpha = (1 - pulseCycle) * 0.55;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(251, 191, 36, ${pulseAlpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // 4. Luminous Bubble/Pearl Level Nodes around the perimeter
+  for (let i = 0; i < maxTaps; i++) {
+    const nodeAngle = -Math.PI / 2 + (i / maxTaps) * Math.PI * 2;
+    const nodeX = Math.cos(nodeAngle) * radius;
+    const nodeY = Math.sin(nodeAngle) * radius;
+
+    const isActive = i < currentTaps;
+
+    if (isActive) {
+      // Activated pearl bubble: glowing, vibrant, iridescent
+      const nodePulse = Math.sin(tSec * 9 + i * 1.5) * 0.4;
+      const nodeR = 3.3 + nodePulse;
+
+      ctx.save();
+      ctx.shadowColor = i === maxTaps - 1 ? '#fb923c' : '#38bdf8';
+      ctx.shadowBlur = 6;
+
+      const pearlGrad = ctx.createRadialGradient(
+        nodeX - 0.8,
+        nodeY - 0.8,
+        0.5,
+        nodeX,
+        nodeY,
+        nodeR
+      );
+      pearlGrad.addColorStop(0, '#ffffff');
+      pearlGrad.addColorStop(0.45, '#7dd3fc');
+      pearlGrad.addColorStop(0.85, '#0284c7');
+      pearlGrad.addColorStop(1, '#0369a1');
+
+      ctx.fillStyle = pearlGrad;
+      ctx.beginPath();
+      ctx.arc(nodeX, nodeY, nodeR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Specular highlight gleam
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.beginPath();
+      ctx.arc(nodeX - 0.9, nodeY - 0.9, nodeR * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    } else {
+      // Unfilled node: faint translucent bubble outline
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(nodeX, nodeY, 2.2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // 5. Dynamic Hydrodynamic Flank Streamlines
+  // Rule (1): when the tap count is 1 or zero, don't show any Hydrodynamic Flank Streamlines
+  // Rule (2): as the taps go to 100%, make the Hydrodynamic Flank Streamlines bigger and bolder
+  // Rule (3): since the Calm Descent is affected by the tap count, keep the Hydrodynamic Flank Streamlines going during the Calm Descent
+  const effectiveStreamlineTaps = bird.velocity < 0
+    ? (abilityState.clownfishUpwardTaps ?? abilityState.clownfishGravityTaps ?? 0)
+    : (abilityState.clownfishGravityTaps ?? 0);
+
+  if (effectiveStreamlineTaps >= 2) {
+    const tapRatio = Math.min(1, effectiveStreamlineTaps / maxTaps);
+    const progressFrom2ToMax = maxTaps > 2
+      ? Math.min(1, Math.max(0, (effectiveStreamlineTaps - 2) / (maxTaps - 2)))
+      : 1.0;
+
+    // Bigger and bolder metrics:
+    const streamlineLen = 32 + progressFrom2ToMax * 44; // 32px to 76px reach
+    const primaryLineWidth = 2.6 + progressFrom2ToMax * 3.4; // 2.6px up to 6.0px thickness
+    const glowAlpha = 0.55 + progressFrom2ToMax * 0.42; // 0.55 up to 0.97
+    const glowBlur = 6 + progressFrom2ToMax * 12; // 6px to 18px radiant glow
+
+    ctx.save();
+    // Rotate with the fish so streamlines trail naturally along the flanks in both ascent and calm descent
+    ctx.rotate(bird.rotation);
+
+    // Dynamic wave oscillation (faster during high exertion, graceful in calm descent)
+    const waveFreq = bird.velocity < 0
+      ? 16 + progressFrom2ToMax * 14
+      : 12 + progressFrom2ToMax * 8;
+    const waveAmp = 3.5 + progressFrom2ToMax * 4.5;
+    const wave1 = Math.sin(tSec * waveFreq) * waveAmp;
+    const wave2 = Math.sin(tSec * waveFreq + Math.PI) * waveAmp;
+    const waveMid = Math.cos(tSec * waveFreq * 1.1) * (waveAmp * 0.5);
+
+    ctx.shadowColor = tapRatio >= 0.95 ? '#38bdf8' : '#7dd3fc';
+    ctx.shadowBlur = glowBlur;
+    ctx.lineCap = 'round';
+
+    // Primary Top Flank Streamline
+    const topGrad = ctx.createLinearGradient(6, -10, -14 - streamlineLen, -14);
+    topGrad.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha})`);
+    topGrad.addColorStop(0.25, `rgba(56, 189, 248, ${glowAlpha})`);
+    topGrad.addColorStop(0.7, `rgba(14, 165, 233, ${glowAlpha * 0.75})`);
+    topGrad.addColorStop(1, 'rgba(14, 165, 233, 0)');
+
+    ctx.strokeStyle = topGrad;
+    ctx.lineWidth = primaryLineWidth;
+    ctx.beginPath();
+    ctx.moveTo(6, -10);
+    ctx.bezierCurveTo(
+      -6, -13 + wave1 * 0.4,
+      -18, -15 + wave1 * 0.8,
+      -14 - streamlineLen, -13 + wave1
+    );
+    ctx.stroke();
+
+    // Primary Bottom Flank Streamline
+    const botGrad = ctx.createLinearGradient(6, 10, -14 - streamlineLen, 14);
+    botGrad.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha})`);
+    botGrad.addColorStop(0.25, `rgba(56, 189, 248, ${glowAlpha})`);
+    botGrad.addColorStop(0.7, `rgba(14, 165, 233, ${glowAlpha * 0.75})`);
+    botGrad.addColorStop(1, 'rgba(14, 165, 233, 0)');
+
+    ctx.strokeStyle = botGrad;
+    ctx.lineWidth = primaryLineWidth;
+    ctx.beginPath();
+    ctx.moveTo(6, 10);
+    ctx.bezierCurveTo(
+      -6, 13 + wave2 * 0.4,
+      -18, 15 + wave2 * 0.8,
+      -14 - streamlineLen, 13 + wave2
+    );
+    ctx.stroke();
+
+    // Secondary Outer Streamlines (scale in as taps increase beyond 2)
+    if (effectiveStreamlineTaps >= 3 || tapRatio >= 0.75) {
+      const outerLineWidth = Math.max(1.6, primaryLineWidth * 0.62);
+      const outerLen = streamlineLen * 0.82;
+      const outerAlpha = glowAlpha * 0.78;
+
+      const outerGrad = ctx.createLinearGradient(0, -16, -12 - outerLen, -20);
+      outerGrad.addColorStop(0, `rgba(224, 242, 254, ${outerAlpha})`);
+      outerGrad.addColorStop(0.4, `rgba(56, 189, 248, ${outerAlpha})`);
+      outerGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+
+      ctx.strokeStyle = outerGrad;
+      ctx.lineWidth = outerLineWidth;
+
+      // Outer dorsal streamline
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.quadraticCurveTo(-14, -20 + wave2 * 0.6, -12 - outerLen, -18 + wave2);
+      ctx.stroke();
+
+      // Outer ventral streamline
+      ctx.beginPath();
+      ctx.moveTo(0, 15);
+      ctx.quadraticCurveTo(-14, 20 + wave1 * 0.6, -12 - outerLen, 18 + wave1);
+      ctx.stroke();
+    }
+
+    // Mid-body slipstream ribbon at 100% effort / high taps
+    if (tapRatio >= 0.95) {
+      const midLen = streamlineLen * 1.12;
+      const midGrad = ctx.createLinearGradient(-12, 0, -12 - midLen, 0);
+      midGrad.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.95})`);
+      midGrad.addColorStop(0.3, `rgba(186, 230, 253, ${glowAlpha * 0.85})`);
+      midGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+
+      ctx.strokeStyle = midGrad;
+      ctx.lineWidth = Math.max(2.2, primaryLineWidth * 0.58);
+      ctx.beginPath();
+      ctx.moveTo(-12, 0);
+      ctx.quadraticCurveTo(-22, waveMid, -12 - midLen, waveMid * 1.4);
+      ctx.stroke();
+    }
+
+    // Aerated cavitation bubbles riding along the streamlines
+    const bubbleCount = Math.floor(3 + progressFrom2ToMax * 5);
+    for (let i = 0; i < bubbleCount; i++) {
+      const cycle = (tSec * (2.8 + progressFrom2ToMax * 2.2) + i * (1 / bubbleCount)) % 1;
+      const bX = 4 - cycle * (18 + streamlineLen);
+      const isTop = i % 2 === 0;
+      const bWave = isTop ? wave1 : wave2;
+      const bBaseY = isTop ? -10 - cycle * 4 : 10 + cycle * 4;
+      const bY = bBaseY + bWave * cycle;
+      const bR = (1.2 + progressFrom2ToMax * 1.3) * (1 - cycle * 0.4);
+      const bAlpha = (1 - cycle) * glowAlpha;
+
+      if (bAlpha > 0.08) {
+        ctx.fillStyle = `rgba(224, 242, 254, ${bAlpha})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${bAlpha * 0.9})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(bX, bY, bR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
 
   ctx.restore();
 }

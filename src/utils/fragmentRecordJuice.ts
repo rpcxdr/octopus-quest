@@ -892,6 +892,349 @@ export function updateRecordJuice(
   }
 }
 
+export interface RecordColumnDrawOptions {
+  centerX: number;
+  topSlotY: number;
+  slotRadius: number;
+  slotSpacing: number;
+  podWidth: number;
+  fishType: FishType;
+  record: number;
+  unghostedCount: number;
+  beyondRecordSlots?: number[];
+  slotBounces?: Record<number, number>;
+  alpha?: number;
+  time?: number;
+  headerLabel?: string;
+  isAnticipationSpotActive?: boolean;
+  anticipationSpot?: AnticipationSpotState | null;
+  currentTargetSlot?: number;
+}
+
+/**
+ * Renders an authentic Record Column capsule pod with stacked record slots.
+ * Shared between the in-game HUD and the post-reef Reef Cleared modal.
+ */
+export function drawRecordColumnPod(
+  ctx: CanvasRenderingContext2D,
+  options: RecordColumnDrawOptions
+): void {
+  const {
+    centerX,
+    topSlotY,
+    slotRadius,
+    slotSpacing,
+    podWidth,
+    fishType,
+    record,
+    unghostedCount,
+    beyondRecordSlots = [],
+    slotBounces = {},
+    alpha = 1.0,
+    time = 0,
+    headerLabel = 'RECORD',
+    isAnticipationSpotActive = false,
+    anticipationSpot = null,
+    currentTargetSlot = -1,
+  } = options;
+
+  if (record <= 0 || alpha <= 0) return;
+
+  const themeColor = getFishThemeColor(fishType);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // 1. COLUMN CAPSULE POD BACKGROUND
+  const podHeight = (record - 1) * slotSpacing + slotRadius * 2 + 22;
+  const podLeft = centerX - podWidth / 2;
+  const podTop = topSlotY - slotRadius - 13;
+  const podRadius = 16;
+
+  // Outer ambient glow
+  const colGlow = ctx.createRadialGradient(
+    centerX,
+    podTop + podHeight * 0.4,
+    10,
+    centerX,
+    podTop + podHeight * 0.4,
+    podHeight * 0.85
+  );
+  colGlow.addColorStop(0, `${themeColor}28`);
+  colGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = colGlow;
+  ctx.fillRect(podLeft - 12, podTop - 8, podWidth + 24, podHeight + 16);
+
+  // Pod capsule body
+  ctx.beginPath();
+  ctx.roundRect(podLeft, podTop, podWidth, podHeight, podRadius);
+  ctx.fillStyle = 'rgba(8, 14, 28, 0.90)';
+  ctx.fill();
+
+  // Pod border with subtle shimmer
+  ctx.strokeStyle = beyondRecordSlots.length > 0
+    ? '#FCD34Daa'
+    : (isAnticipationSpotActive ? '#FCD34D88' : `${themeColor}66`);
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+
+  // Top header label: "RECORD"
+  ctx.font = 'bold 7.5px system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = beyondRecordSlots.length > 0 ? '#FCD34D' : '#94A3B8';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(headerLabel, centerX, podTop + 4);
+
+  // 2. SLOTS (Top X unghosted, remaining Y ghosted)
+  for (let i = 0; i < record; i++) {
+    const slotY = topSlotY + i * slotSpacing;
+    const isUnghosted = i < unghostedCount;
+    const isBeyondRecordSlot = beyondRecordSlots.includes(i);
+    const bounce = slotBounces[i] || 1.0;
+
+    ctx.save();
+    ctx.translate(centerX, slotY);
+    if (bounce !== 1.0) {
+      ctx.scale(bounce, bounce);
+    }
+
+    if (isUnghosted) {
+      // --- NORMAL / UNGHOSTED FRAGMENT ---
+      const activeColor = isBeyondRecordSlot ? '#FCD34D' : themeColor;
+
+      // Soft radial outer theme glow
+      const glow = ctx.createRadialGradient(
+        0,
+        0,
+        slotRadius * 0.3,
+        0,
+        0,
+        slotRadius * (isBeyondRecordSlot ? 2.4 : 1.8)
+      );
+      glow.addColorStop(0, isBeyondRecordSlot ? 'rgba(252, 211, 77, 0.65)' : `${themeColor}55`);
+      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, slotRadius * (isBeyondRecordSlot ? 2.4 : 1.8), 0, Math.PI * 2);
+      ctx.fill();
+
+      // Beyond-record special sunburst corona / star rays!
+      if (isBeyondRecordSlot) {
+        ctx.save();
+        const starRot = time * 0.003 + i * 0.5;
+        ctx.rotate(starRot);
+        ctx.strokeStyle = 'rgba(252, 211, 77, 0.75)';
+        ctx.lineWidth = 1.4;
+        const numRays = 8;
+        for (let r = 0; r < numRays; r++) {
+          const ang = (Math.PI * 2 * r) / numRays;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(ang) * (slotRadius + 1), Math.sin(ang) * (slotRadius + 1));
+          ctx.lineTo(Math.cos(ang) * (slotRadius + 5), Math.sin(ang) * (slotRadius + 5));
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // Rotating diamond facet ring
+      const rot = (time * 0.002 + i * 1.2) % (Math.PI * 2);
+      ctx.save();
+      ctx.rotate(rot);
+      ctx.strokeStyle = isBeyondRecordSlot ? '#FCD34D' : `${themeColor}99`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      const d = slotRadius * 1.22;
+      ctx.moveTo(0, -d);
+      ctx.lineTo(d, 0);
+      ctx.lineTo(0, d);
+      ctx.lineTo(-d, 0);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+
+      // Crystal medallion body
+      const bodyGrad = ctx.createRadialGradient(
+        -slotRadius * 0.3,
+        -slotRadius * 0.3,
+        2,
+        0,
+        0,
+        slotRadius
+      );
+      bodyGrad.addColorStop(0, '#FFFFFF');
+      bodyGrad.addColorStop(0.35, activeColor);
+      bodyGrad.addColorStop(0.85, '#0F172A');
+      bodyGrad.addColorStop(1, '#020617');
+
+      ctx.beginPath();
+      ctx.arc(0, 0, slotRadius, 0, Math.PI * 2);
+      ctx.fillStyle = bodyGrad;
+      ctx.fill();
+
+      // Crisp iridescent border (Gold if beyond record, white otherwise)
+      ctx.strokeStyle = isBeyondRecordSlot ? '#FFFBEB' : '#FFFFFF';
+      ctx.lineWidth = isBeyondRecordSlot ? 1.8 : 1.4;
+      ctx.stroke();
+
+      // Inner theme accent rim
+      ctx.beginPath();
+      ctx.arc(0, 0, slotRadius - 2, 0, Math.PI * 2);
+      ctx.strokeStyle = activeColor;
+      ctx.lineWidth = 0.9;
+      ctx.stroke();
+
+      // Full-color centered fish sprite
+      drawFishBadgeCanvas(ctx, fishType, 0, 0, slotRadius * 1.35);
+
+      // Specular glint
+      ctx.beginPath();
+      ctx.ellipse(
+        -slotRadius * 0.36,
+        -slotRadius * 0.36,
+        slotRadius * 0.28,
+        slotRadius * 0.14,
+        -Math.PI / 4,
+        0,
+        Math.PI * 2
+      );
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fill();
+    } else {
+      // --- GHOSTED FRAGMENT ---
+      const isAnticipationSpot =
+        anticipationSpot &&
+        anticipationSpot.active &&
+        i === anticipationSpot.slotIndex;
+      const isTargetSlot = i === currentTargetSlot;
+
+      if (isAnticipationSpot) {
+        // Heartbeat pulsing ghosted spot
+        const spot = anticipationSpot;
+        const pulseRatio = spot.pulseTimer / spot.pulsePeriod;
+        const pulseSin = Math.sin(pulseRatio * Math.PI);
+        const pulseScale = 1.0 + pulseSin * (spot.isDoubleSpeed ? 0.28 : 0.22);
+
+        ctx.scale(pulseScale, pulseScale);
+
+        const auraRadius = slotRadius * (spot.isLevelUpNext ? 2.2 + pulseSin * 1.0 : 1.8 + pulseSin * 0.8);
+        const auraGrad = ctx.createRadialGradient(
+          0,
+          0,
+          slotRadius * 0.3,
+          0,
+          0,
+          auraRadius
+        );
+        if (spot.isLevelUpNext) {
+          auraGrad.addColorStop(0, 'rgba(254, 240, 138, 0.85)');
+          auraGrad.addColorStop(0.45, `${themeColor}aa`);
+          auraGrad.addColorStop(0.75, 'rgba(252, 211, 77, 0.45)');
+          auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else {
+          auraGrad.addColorStop(0, `${themeColor}77`);
+          auraGrad.addColorStop(0.5, 'rgba(252, 211, 77, 0.45)');
+          auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        }
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, slotRadius, 0, Math.PI * 2);
+        ctx.fillStyle = spot.isLevelUpNext ? 'rgba(15, 23, 42, 0.88)' : 'rgba(15, 23, 42, 0.82)';
+        ctx.fill();
+
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.lineDashOffset = -time * (spot.isDoubleSpeed ? 0.038 : 0.018);
+        ctx.strokeStyle = spot.isLevelUpNext ? '#FEF08A' : '#FCD34D';
+        ctx.lineWidth = (spot.isLevelUpNext ? 2.0 : 1.6) + pulseSin * 0.5;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, slotRadius - 2.5, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${spot.isLevelUpNext ? 0.55 + pulseSin * 0.4 : 0.35 + pulseSin * 0.4})`;
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.globalAlpha = alpha * (spot.isLevelUpNext ? 0.28 : (0.55 + pulseSin * 0.35));
+        drawFishBadgeCanvas(ctx, fishType, 0, 0, slotRadius * 1.35);
+        ctx.restore();
+
+        if (spot.isLevelUpNext) {
+          ctx.save();
+          const plusScale = 1.0 + pulseSin * 0.25;
+          ctx.scale(plusScale, plusScale);
+          ctx.font = '900 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#F59E0B';
+          ctx.shadowBlur = 8 + pulseSin * 6;
+          ctx.strokeStyle = '#78350F';
+          ctx.lineWidth = 3.2;
+          ctx.strokeText('+1', 0, 0.5);
+          ctx.fillStyle = '#FEF08A';
+          ctx.fillText('+1', 0, 0.5);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(2.8, -4.5, 1.2 + pulseSin * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.save();
+        const starAngle = -Math.PI / 4 + (spot.isDoubleSpeed ? time * 0.005 : 0);
+        const starDist = slotRadius + 2.5;
+        ctx.translate(Math.cos(starAngle) * starDist, Math.sin(starAngle) * starDist);
+        ctx.fillStyle = spot.isLevelUpNext ? '#FEF08A' : '#FCD34D';
+        ctx.beginPath();
+        ctx.arc(0, 0, (spot.isLevelUpNext ? 2.8 : 2.2) + pulseSin * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        // Standard ghosted slot
+        ctx.beginPath();
+        ctx.arc(0, 0, slotRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isTargetSlot ? 'rgba(15, 23, 42, 0.72)' : 'rgba(15, 23, 42, 0.45)';
+        ctx.fill();
+
+        ctx.setLineDash([3, 2.5]);
+        ctx.strokeStyle = isTargetSlot ? `${themeColor}bb` : 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, slotRadius - 2.5, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.globalAlpha = alpha * (isTargetSlot ? 0.48 : 0.25);
+        drawFishBadgeCanvas(ctx, fishType, 0, 0, slotRadius * 1.3);
+        ctx.restore();
+
+        if (isTargetSlot) {
+          const pulse = 1 + Math.sin(time * 0.008) * 0.08;
+          ctx.beginPath();
+          ctx.arc(0, 0, slotRadius * pulse, 0, Math.PI * 2);
+          ctx.strokeStyle = `${themeColor}77`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
 /**
  * Draws the whole-screen ripple effects, ambient bloom flash, record column, ghosted/unghosted slots,
  * new record banner, and in-flight animated fragments.
@@ -997,313 +1340,26 @@ export function drawRecordJuice(
   ctx.globalAlpha = alpha;
 
   // =========================================================================
-  // 3. COLUMN CAPSULE POD BACKGROUND
+  // 3. COLUMN CAPSULE POD & RECORD SLOTS (Extracted for shared use in modals)
   // =========================================================================
-  const podHeight = (record - 1) * slotSpacing + slotRadius * 2 + 22;
-  const podLeft = centerX - podWidth / 2;
-  const podTop = topSlotY - slotRadius - 13;
-  const podRadius = 16;
-
-  // Outer ambient glow
-  const colGlow = ctx.createRadialGradient(
+  drawRecordColumnPod(ctx, {
     centerX,
-    podTop + podHeight * 0.4,
-    10,
-    centerX,
-    podTop + podHeight * 0.4,
-    podHeight * 0.85
-  );
-  colGlow.addColorStop(0, `${themeColor}28`);
-  colGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = colGlow;
-  ctx.fillRect(podLeft - 12, podTop - 8, podWidth + 24, podHeight + 16);
-
-  // Pod capsule body
-  ctx.beginPath();
-  ctx.roundRect(podLeft, podTop, podWidth, podHeight, podRadius);
-  ctx.fillStyle = 'rgba(8, 14, 28, 0.90)';
-  ctx.fill();
-
-  // Pod border with subtle shimmer
-  ctx.strokeStyle = beyondRecordSlots.length > 0 ? '#FCD34Daa' : (state.anticipationSpot?.active ? '#FCD34D88' : `${themeColor}66`);
-  ctx.lineWidth = 1.3;
-  ctx.stroke();
-
-  // Top header label: "RECORD"
-  ctx.font = 'bold 7.5px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = beyondRecordSlots.length > 0 ? '#FCD34D' : '#94A3B8';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText('RECORD', centerX, podTop + 4);
-
-  // =========================================================================
-  // 4. SLOTS (Top X unghosted, remaining Y ghosted)
-  // =========================================================================
-  for (let i = 0; i < record; i++) {
-    const slotY = topSlotY + i * slotSpacing;
-    const isUnghosted = i < unghostedCount;
-    const isBeyondRecordSlot = beyondRecordSlots.includes(i);
-    const bounce = slotBounces[i] || 1.0;
-
-    ctx.save();
-    ctx.translate(centerX, slotY);
-    if (bounce !== 1.0) {
-      ctx.scale(bounce, bounce);
-    }
-
-    if (isUnghosted) {
-      // --- NORMAL / UNGHOSTED FRAGMENT ---
-      const activeColor = isBeyondRecordSlot ? '#FCD34D' : themeColor;
-
-      // Soft radial outer theme glow
-      const glow = ctx.createRadialGradient(0, 0, slotRadius * 0.3, 0, 0, slotRadius * (isBeyondRecordSlot ? 2.4 : 1.8));
-      glow.addColorStop(0, isBeyondRecordSlot ? 'rgba(252, 211, 77, 0.65)' : `${themeColor}55`);
-      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(0, 0, slotRadius * (isBeyondRecordSlot ? 2.4 : 1.8), 0, Math.PI * 2);
-      ctx.fill();
-
-      // Beyond-record special sunburst corona / star rays!
-      if (isBeyondRecordSlot) {
-        ctx.save();
-        const starRot = time * 0.003 + i * 0.5;
-        ctx.rotate(starRot);
-        ctx.strokeStyle = 'rgba(252, 211, 77, 0.75)';
-        ctx.lineWidth = 1.4;
-        const numRays = 8;
-        for (let r = 0; r < numRays; r++) {
-          const ang = (Math.PI * 2 * r) / numRays;
-          ctx.beginPath();
-          ctx.moveTo(Math.cos(ang) * (slotRadius + 1), Math.sin(ang) * (slotRadius + 1));
-          ctx.lineTo(Math.cos(ang) * (slotRadius + 5), Math.sin(ang) * (slotRadius + 5));
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      // Rotating diamond facet ring
-      const rot = (time * 0.002 + i * 1.2) % (Math.PI * 2);
-      ctx.save();
-      ctx.rotate(rot);
-      ctx.strokeStyle = isBeyondRecordSlot ? '#FCD34D' : `${themeColor}99`;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      const d = slotRadius * 1.22;
-      ctx.moveTo(0, -d);
-      ctx.lineTo(d, 0);
-      ctx.lineTo(0, d);
-      ctx.lineTo(-d, 0);
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
-
-      // Crystal medallion body
-      const bodyGrad = ctx.createRadialGradient(
-        -slotRadius * 0.3,
-        -slotRadius * 0.3,
-        2,
-        0,
-        0,
-        slotRadius
-      );
-      bodyGrad.addColorStop(0, '#FFFFFF');
-      bodyGrad.addColorStop(0.35, activeColor);
-      bodyGrad.addColorStop(0.85, '#0F172A');
-      bodyGrad.addColorStop(1, '#020617');
-
-      ctx.beginPath();
-      ctx.arc(0, 0, slotRadius, 0, Math.PI * 2);
-      ctx.fillStyle = bodyGrad;
-      ctx.fill();
-
-      // Crisp iridescent border (Gold if beyond record, white otherwise)
-      ctx.strokeStyle = isBeyondRecordSlot ? '#FFFBEB' : '#FFFFFF';
-      ctx.lineWidth = isBeyondRecordSlot ? 1.8 : 1.4;
-      ctx.stroke();
-
-      // Inner theme accent rim
-      ctx.beginPath();
-      ctx.arc(0, 0, slotRadius - 2, 0, Math.PI * 2);
-      ctx.strokeStyle = activeColor;
-      ctx.lineWidth = 0.9;
-      ctx.stroke();
-
-      // Full-color centered fish sprite
-      drawFishBadgeCanvas(ctx, fishType, 0, 0, slotRadius * 1.35);
-
-      // Specular glint
-      ctx.beginPath();
-      ctx.ellipse(
-        -slotRadius * 0.36,
-        -slotRadius * 0.36,
-        slotRadius * 0.28,
-        slotRadius * 0.14,
-        -Math.PI / 4,
-        0,
-        Math.PI * 2
-      );
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.fill();
-    } else {
-      // --- GHOSTED FRAGMENT ---
-      const isAnticipationSpot =
-        state.anticipationSpot &&
-        state.anticipationSpot.active &&
-        i === state.anticipationSpot.slotIndex;
-      const isTargetSlot = i === state.currentTargetSlot;
-
-      if (isAnticipationSpot) {
-        // ===================================================================
-        // FOURTH ITERATION: EXTRA PULSING BUBBLING GHOSTED SPOT FOR RECORD BREAKER!
-        // (1) fragsNow >= pastRecord anticipation
-        // (2) If next fragment increases fish level: double pulse speed & pulsing "+1" overlay
-        // ===================================================================
-        const spot = state.anticipationSpot!;
-        const pulseRatio = spot.pulseTimer / spot.pulsePeriod;
-        // Punchy heartbeat sine pulse curve:
-        const pulseSin = Math.sin(pulseRatio * Math.PI);
-        const pulseScale = 1.0 + pulseSin * (spot.isDoubleSpeed ? 0.28 : 0.22);
-
-        // Apply scale pulse to this anticipation slot
-        ctx.scale(pulseScale, pulseScale);
-
-        // 1. Radiant pulsing outer aura (Theme color + Gold)
-        const auraRadius = slotRadius * (spot.isLevelUpNext ? 2.2 + pulseSin * 1.0 : 1.8 + pulseSin * 0.8);
-        const auraGrad = ctx.createRadialGradient(
-          0,
-          0,
-          slotRadius * 0.3,
-          0,
-          0,
-          auraRadius
-        );
-        if (spot.isLevelUpNext) {
-          auraGrad.addColorStop(0, 'rgba(254, 240, 138, 0.85)');
-          auraGrad.addColorStop(0.45, `${themeColor}aa`);
-          auraGrad.addColorStop(0.75, 'rgba(252, 211, 77, 0.45)');
-          auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        } else {
-          auraGrad.addColorStop(0, `${themeColor}77`);
-          auraGrad.addColorStop(0.5, 'rgba(252, 211, 77, 0.45)');
-          auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        }
-        ctx.fillStyle = auraGrad;
-        ctx.beginPath();
-        ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 2. Translucent deep socket recess
-        ctx.beginPath();
-        ctx.arc(0, 0, slotRadius, 0, Math.PI * 2);
-        ctx.fillStyle = spot.isLevelUpNext ? 'rgba(15, 23, 42, 0.88)' : 'rgba(15, 23, 42, 0.82)';
-        ctx.fill();
-
-        // 3. Golden animated rotating dashed border (double speed spin when level-up is next)
-        ctx.save();
-        ctx.setLineDash([4, 3]);
-        ctx.lineDashOffset = -time * (spot.isDoubleSpeed ? 0.038 : 0.018);
-        ctx.strokeStyle = spot.isLevelUpNext ? '#FEF08A' : '#FCD34D';
-        ctx.lineWidth = (spot.isLevelUpNext ? 2.0 : 1.6) + pulseSin * 0.5;
-        ctx.stroke();
-        ctx.restore();
-
-        // 4. Concentric inner gold/white shimmer ring
-        ctx.beginPath();
-        ctx.arc(0, 0, slotRadius - 2.5, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${spot.isLevelUpNext ? 0.55 + pulseSin * 0.4 : 0.35 + pulseSin * 0.4})`;
-        ctx.lineWidth = 1.0;
-        ctx.stroke();
-
-        // 5. Ghosted translucent fish silhouette
-        ctx.save();
-        ctx.globalAlpha = alpha * (spot.isLevelUpNext ? 0.28 : (0.55 + pulseSin * 0.35));
-        drawFishBadgeCanvas(ctx, fishType, 0, 0, slotRadius * 1.35);
-        ctx.restore();
-
-        // 5b. Overlay a pulsing "+1" in the pulsing ghosted spot when next fragment increases fish level!
-        if (spot.isLevelUpNext) {
-          ctx.save();
-          const plusScale = 1.0 + pulseSin * 0.25;
-          ctx.scale(plusScale, plusScale);
-          ctx.font = '900 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-
-          // Glowing text shadow / aura
-          ctx.shadowColor = '#F59E0B';
-          ctx.shadowBlur = 8 + pulseSin * 6;
-
-          // Dark outline for ultra-crisp contrast
-          ctx.strokeStyle = '#78350F';
-          ctx.lineWidth = 3.2;
-          ctx.strokeText('+1', 0, 0.5);
-
-          // Golden gleaming text fill
-          ctx.fillStyle = '#FEF08A';
-          ctx.fillText('+1', 0, 0.5);
-
-          // Specular spark
-          ctx.fillStyle = '#FFFFFF';
-          ctx.beginPath();
-          ctx.arc(2.8, -4.5, 1.2 + pulseSin * 0.6, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.restore();
-        }
-
-        // 6. Mini golden star glint at the spot's edge indicating upcoming record break
-        ctx.save();
-        const starAngle = -Math.PI / 4 + (spot.isDoubleSpeed ? time * 0.005 : 0);
-        const starDist = slotRadius + 2.5;
-        ctx.translate(Math.cos(starAngle) * starDist, Math.sin(starAngle) * starDist);
-        ctx.fillStyle = spot.isLevelUpNext ? '#FEF08A' : '#FCD34D';
-        ctx.beginPath();
-        ctx.arc(0, 0, (spot.isLevelUpNext ? 2.8 : 2.2) + pulseSin * 0.8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      } else {
-        // Standard ghosted slot
-        // Translucent socket recess
-        ctx.beginPath();
-        ctx.arc(0, 0, slotRadius, 0, Math.PI * 2);
-        ctx.fillStyle = isTargetSlot ? 'rgba(15, 23, 42, 0.72)' : 'rgba(15, 23, 42, 0.45)';
-        ctx.fill();
-
-        // Ghosted dashed border
-        ctx.setLineDash([3, 2.5]);
-        ctx.strokeStyle = isTargetSlot ? `${themeColor}bb` : 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 1.1;
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Inner subtle dashed ring
-        ctx.beginPath();
-        ctx.arc(0, 0, slotRadius - 2.5, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
-
-        // Ghosted translucent fish silhouette
-        ctx.save();
-        ctx.globalAlpha = alpha * (isTargetSlot ? 0.48 : 0.25);
-        drawFishBadgeCanvas(ctx, fishType, 0, 0, slotRadius * 1.3);
-        ctx.restore();
-
-        // Target slot subtle pulse indicator
-        if (isTargetSlot) {
-          const pulse = 1 + Math.sin(time * 0.008) * 0.08;
-          ctx.beginPath();
-          ctx.arc(0, 0, slotRadius * pulse, 0, Math.PI * 2);
-          ctx.strokeStyle = `${themeColor}77`;
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
-      }
-    }
-
-    ctx.restore();
-  }
+    topSlotY,
+    slotRadius,
+    slotSpacing,
+    podWidth,
+    fishType,
+    record,
+    unghostedCount,
+    beyondRecordSlots,
+    slotBounces,
+    alpha,
+    time,
+    headerLabel: 'RECORD',
+    isAnticipationSpotActive: Boolean(state.anticipationSpot?.active),
+    anticipationSpot: state.anticipationSpot,
+    currentTargetSlot: state.currentTargetSlot,
+  });
 
   // Draw buoyant bubbling particles rising from the anticipation spot
   if (state.anticipationSpot && state.anticipationSpot.active && state.anticipationSpot.bubbles.length > 0) {

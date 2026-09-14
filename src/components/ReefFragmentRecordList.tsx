@@ -14,18 +14,28 @@ export interface ReefFragmentRecordItemProps {
 }
 
 /**
+ * Predictable column order for all reef levels:
+ * Column 1: Octopus
+ * Column 2: Puffer Fish
+ * Column 3: Clown Fish
+ * Column 4: Stingray
+ * Column 5: Seahorse
+ */
+export const REEF_FISH_ORDER: FishType[] = [
+  'octopus',
+  'pufferfish',
+  'clownfish',
+  'singray',
+  'seahorse',
+];
+
+/**
  * Individual row for a Reef's retained fragment records.
  * Layout from left to right:
- * 1. Reef Number (just the number, large font)
- * 2. Fragments collected (no sub frames, single line, no horizontal scrollbar)
+ * 1. Reef Number (fixed width, prominent display font)
+ * 2. 5 Aligned Fragment Columns (Octopus, Puffer, Clown, Stingray, Seahorse)
+ *    If count is 0, leaves an empty space with no fish and no number.
  * 3. Play button if unlocked OR Lock icon if locked
- *
- * Background:
- * - If unlocked: matches the color palette of the level's background theme
- * - If locked: zero saturation grey background (#202020)
- *
- * Interaction:
- * - Clicking anywhere on an unlocked level selects it to be played.
  */
 export const ReefFragmentRecordRow: React.FC<ReefFragmentRecordItemProps> = ({
   reefLevel,
@@ -34,11 +44,6 @@ export const ReefFragmentRecordRow: React.FC<ReefFragmentRecordItemProps> = ({
   onSelectReef,
 }) => {
   const reefStyle = getReefLevelStyle(reefLevel, isUnlocked);
-
-  // Non-zero fragment entries
-  const fragmentEntries = (Object.entries(counts) as [FishType, number][])
-    .filter(([_, c]) => c > 0)
-    .sort((a, b) => b[1] - a[1]);
 
   // Styling based on unlocked status
   const rowStyle: React.CSSProperties = {
@@ -67,16 +72,16 @@ export const ReefFragmentRecordRow: React.FC<ReefFragmentRecordItemProps> = ({
       }}
       style={rowStyle}
       title={isUnlocked ? `Reef ${reefLevel} — Click to play` : `Reef ${reefLevel} — Locked`}
-      className={`w-full px-2.5 py-1.5 rounded-xl border transition-all duration-150 flex items-center justify-between gap-2.5 select-none ${
+      className={`w-full px-2.5 py-1.5 rounded-xl border transition-all duration-150 flex items-center justify-between gap-1.5 sm:gap-2 select-none ${
         isUnlocked
           ? 'cursor-pointer hover:brightness-115 hover:border-cyan-300/60 active:scale-[0.99] group/row'
           : 'cursor-default opacity-60'
       }`}
     >
-      {/* 1. Reef Number: Just the number, prominent display font */}
-      <div className="flex items-center min-w-[1.6rem] sm:min-w-[2rem] shrink-0">
+      {/* 1. Reef Number: Fixed width for perfect vertical alignment across all levels */}
+      <div className="w-6 sm:w-7 flex items-center justify-start shrink-0">
         <span
-          className={`font-game font-black text-lg sm:text-xl leading-none ${
+          className={`font-game font-black text-base sm:text-lg leading-none ${
             isUnlocked
               ? 'text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] group-hover/row:text-cyan-200 transition-colors'
               : 'text-[#757575]'
@@ -86,19 +91,31 @@ export const ReefFragmentRecordRow: React.FC<ReefFragmentRecordItemProps> = ({
         </span>
       </div>
 
-      {/* 2. Fragments Collected: Compact, single line, absolutely no scrollbar */}
-      <div className="flex-1 flex items-center gap-2 sm:gap-3 flex-nowrap overflow-hidden justify-start min-w-0 px-0.5">
-        {fragmentEntries.length > 0 &&
-          fragmentEntries.map(([fish, c]) => (
+      {/* 2. Fragments Collected: 5 Predictable Columns (Octopus, Puffer, Clown, Stingray, Seahorse) */}
+      <div className="flex-1 grid grid-cols-5 items-center gap-1 sm:gap-1.5 min-w-0 px-0.5 sm:px-1">
+        {REEF_FISH_ORDER.map((fish) => {
+          const c = counts[fish] || 0;
+          if (c <= 0) {
+            // Empty space with no fish and no number
+            return (
+              <div
+                key={fish}
+                className="h-5 flex items-center justify-start"
+                aria-hidden="true"
+              />
+            );
+          }
+
+          return (
             <div
               key={fish}
-              className="flex items-center gap-1 shrink-0 whitespace-nowrap"
+              className="flex items-center justify-start gap-1 shrink-0 whitespace-nowrap min-w-0"
               title={`${getFishDisplayName(fish)}: ${c}`}
             >
               <FishBadgeIcon
                 fishType={fish}
-                size={16}
-                className={`drop-shadow-sm ${!isUnlocked ? 'grayscale opacity-50' : ''}`}
+                size={15}
+                className={`drop-shadow-sm shrink-0 ${!isUnlocked ? 'grayscale opacity-50' : ''}`}
               />
               <span
                 className={`font-mono font-black text-xs sm:text-sm leading-none ${
@@ -110,11 +127,12 @@ export const ReefFragmentRecordRow: React.FC<ReefFragmentRecordItemProps> = ({
                 {c}
               </span>
             </div>
-          ))}
+          );
+        })}
       </div>
 
       {/* 3. Action: Play button if unlocked OR Lock icon if locked */}
-      <div className="shrink-0 flex items-center">
+      <div className="w-6 sm:w-7 shrink-0 flex items-center justify-end">
         {isUnlocked ? (
           <div
             id={`play-reef-record-${reefLevel}`}

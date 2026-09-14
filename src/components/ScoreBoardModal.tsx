@@ -1,202 +1,159 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { RotateCcw, Trophy, Sparkles, Home } from 'lucide-react';
+import { RotateCcw, Home } from 'lucide-react';
+import { FishSkeletonIcon } from './FishSkeletonIcon';
 import { FishFragmentCounts, FishType, GameDifficulty, GameStats, ReefProgress } from '../types';
-import { getHighestBadge } from '../utils/badges';
 import { getReefZoneName } from '../utils/reef';
-import { getSpeedIncreasePercent } from '../utils/physics';
-import { getFishDisplayName } from '../utils/fish';
-import { countTotalFragments } from '../utils/fragments';
-import { FishBadgeIcon } from './FishBadgeIcon';
+import { ReefClearedRecordColumns } from './RecordColumnPodView';
+import { REEF_FISH_ORDER } from './ReefFragmentRecordList';
 
 interface ScoreBoardModalProps {
-  score: number;
+  score?: number;
   reefLevel: number;
   reefColumn?: number;
-  highScore: number;
-  isNewHighScore: boolean;
+  highScore?: number;
+  isNewHighScore?: boolean;
   totalScore?: number;
   reefProgress?: ReefProgress;
   stats?: GameStats;
   difficulty?: GameDifficulty;
   attemptFragments?: FishFragmentCounts;
   reefMaxFragments?: FishFragmentCounts;
+  totalFragmentsByFish?: Record<FishType, number>;
+  priorTotalFragmentsByFish?: Record<FishType, number>;
   onRestart: () => void;
   onOpenStats?: () => void;
   onGoHome: () => void;
 }
 
 export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
-  score,
   reefLevel,
-  reefColumn,
-  highScore,
-  isNewHighScore,
-  totalScore,
-  reefProgress,
-  stats,
-  difficulty,
   attemptFragments,
   reefMaxFragments,
+  totalFragmentsByFish,
+  priorTotalFragmentsByFish,
   onRestart,
-  onOpenStats,
   onGoHome,
 }) => {
-  const currentBadge = getHighestBadge(totalScore ?? Math.max(score, highScore), reefProgress, stats);
+  // Determine if any new record was achieved during this swim attempt
+  const hasNewRecords = REEF_FISH_ORDER.some((fish) => {
+    const collected = attemptFragments?.[fish] || 0;
+    const prior = Number(reefMaxFragments?.[fish]) || 0;
+    return collected > prior;
+  });
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Tapping anywhere in the background backdrop starts the replay
+    if (e.target === e.currentTarget) {
+      onRestart();
+    }
+  };
 
   return (
-    <div id="game-over-modal" className="absolute inset-0 flex items-center justify-center p-4 z-20 pointer-events-auto bg-slate-950/80 backdrop-blur-xl">
+    <div
+      id="game-over-modal"
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-auto bg-slate-950/85 backdrop-blur-md cursor-pointer overflow-x-hidden"
+      title="Tap background to replay"
+    >
       <motion.div
-        initial={{ scale: 0.88, opacity: 0, y: 15 }}
+        onClick={(e) => e.stopPropagation()}
+        initial={{ scale: 0.85, opacity: 0, y: 24 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ type: 'spring', damping: 22, stiffness: 320 }}
-        className="w-full max-w-xs bg-slate-950/95 border border-cyan-500/25 rounded-3xl shadow-2xl p-5 text-slate-100 flex flex-col items-center select-none ring-1 ring-cyan-500/10"
+        transition={{ type: 'spring', damping: 20, stiffness: 280 }}
+        className="w-full max-w-sm max-h-[92vh] overflow-y-auto overflow-x-hidden bg-slate-900/95 border border-rose-500/40 rounded-3xl p-5 shadow-[0_0_50px_rgba(244,63,94,0.25)] text-slate-100 flex flex-col items-center text-center relative cursor-default"
       >
-        {/* Game Over Title & Reef subheader */}
-        <h2 id="game-over-title" className="text-2xl font-black tracking-wider font-game uppercase text-rose-400 drop-shadow-[0_4px_16px_rgba(244,63,94,0.35)] mb-0.5">
+        {/* Ambient failure glow & background failed icon watermark (same size & opacity as reef cleared modal, but red) */}
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none text-rose-500/[0.08] flex items-center justify-center select-none -z-0">
+          <FishSkeletonIcon className="w-44 h-44 -rotate-6" strokeWidth={1.25} />
+        </div>
+
+        {/* Game Over Title matching Reef Cleared modal font size */}
+        <h2
+          id="game-over-title"
+          className="relative z-10 text-3xl sm:text-4xl font-black font-game uppercase text-rose-400 tracking-wider mb-1 pt-1 drop-shadow-[0_2px_16px_rgba(244,63,94,0.45)]"
+        >
           Tangled in Kelp!
         </h2>
-        <div className="text-[11px] font-bold text-cyan-300/80 mb-3 flex items-center gap-1.5">
-          <span>Reef {reefLevel}: {getReefZoneName(reefLevel)}</span>
-          {difficulty && (
-            <span
-              className={`text-[8.5px] uppercase font-black px-1.5 py-0.5 rounded-full border ${
-                difficulty === 'easy'
-                  ? 'text-emerald-300 border-emerald-500/40 bg-emerald-950/80'
-                  : difficulty === 'hard'
-                  ? 'text-orange-300 border-orange-500/40 bg-orange-950/80'
-                  : 'text-cyan-300 border-cyan-500/40 bg-cyan-950/80'
-              }`}
-            >
-              {difficulty} &bull; +{getSpeedIncreasePercent(difficulty, reefLevel)}% spd
-            </span>
+
+        {/* Reef Zone Name (with difficulty/speed text removed) */}
+        <div className="text-xs text-cyan-200/70 mb-3 relative z-10">
+          Reef {reefLevel}: {getReefZoneName(reefLevel)}
+        </div>
+
+        {/* Reused Fragment Records Summary Layout with Lost Achievements Overlay */}
+        <div className="w-full relative my-1 overflow-visible">
+          <ReefClearedRecordColumns
+            attemptFragments={attemptFragments}
+            reefMaxFragments={reefMaxFragments}
+            totalFragmentsByFish={totalFragmentsByFish}
+            priorTotalFragmentsByFish={priorTotalFragmentsByFish}
+            isGameOver={true}
+          />
+
+          {/* Emotionally impactful 0.5s animation overlay showing you have lost all new records */}
+          {hasNewRecords && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none overflow-hidden rounded-2xl">
+              {/* Crimson flash pulse across the achievements container */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.45, 0.2] }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className="absolute inset-0 bg-rose-950/60 border border-rose-500/40 rounded-2xl"
+              />
+
+              {/* Dynamic diagonal slash lines cutting across achievements */}
+              <motion.div
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: 1 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="absolute top-1/2 left-1 right-1 h-1 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_20px_rgba(244,63,94,1)] -rotate-6 origin-center"
+              />
+              <motion.div
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: 0.9 }}
+                transition={{ delay: 0.06, duration: 0.2, ease: 'easeOut' }}
+                className="absolute top-1/2 left-3 right-3 h-0.5 bg-rose-300 shadow-[0_0_12px_rgba(255,255,255,0.9)] -rotate-6 origin-center"
+              />
+
+              {/* Shockwave ripple expanding when the stamp impacts */}
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: [0.5, 1.45], opacity: [0, 0.9, 0] }}
+                transition={{ delay: 0.18, duration: 0.32, ease: 'easeOut' }}
+                className="absolute w-44 h-16 rounded-2xl border-2 border-rose-500/80 shadow-[0_0_25px_rgba(244,63,94,0.9)]"
+              />
+
+              {/* Heavy impact slam stamp */}
+              <motion.div
+                initial={{ scale: 2.2, opacity: 0, rotate: -12 }}
+                animate={{ scale: [2.2, 0.95, 1], opacity: 1, rotate: -3 }}
+                transition={{
+                  duration: 0.48,
+                  times: [0, 0.72, 1],
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className="relative z-40 bg-slate-950/95 border-2 border-rose-500 rounded-2xl px-4 py-2.5 shadow-[0_0_32px_rgba(244,63,94,0.75)] flex flex-col items-center justify-center text-center ring-2 ring-rose-500/30"
+              >
+                <div className="flex items-center gap-1.5 text-rose-400 font-game font-black text-sm uppercase tracking-widest drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                  <FishSkeletonIcon className="w-4 h-4 text-rose-400 animate-pulse" strokeWidth={2} />
+                  <span>Records Lost</span>
+                </div>
+                <div className="text-[9.5px] font-bold text-rose-200/90 tracking-wide mt-0.5 whitespace-nowrap">
+                  Must clear reef to bank records
+                </div>
+              </motion.div>
+            </div>
           )}
         </div>
 
-        {/* Score Board Box */}
-        <div id="score-summary-card" className="w-full bg-slate-900/90 border border-cyan-500/15 rounded-2xl p-3.5 shadow-2xl mb-4">
-          <div className="flex items-center justify-between gap-3">
-            {/* Badge Section */}
-            <div className="flex flex-col items-center justify-center p-2 bg-slate-950/70 rounded-xl border border-white/10 min-w-[84px]">
-              <span className="text-[9px] font-black text-cyan-400 uppercase tracking-wider mb-1">
-                Badge
-              </span>
-              <div
-                className={`w-12 h-12 rounded-full border-2 ${currentBadge.border} ${currentBadge.bg} flex items-center justify-center shadow-lg relative text-xl`}
-              >
-                {currentBadge.id !== 'none' ? (
-                  <>
-                    <span>{currentBadge.emoji}</span>
-                    <Sparkles className="w-3 h-3 text-white absolute -top-1 -right-1 animate-pulse" />
-                  </>
-                ) : (
-                  <span className="text-xs text-slate-500 font-semibold">—</span>
-                )}
-              </div>
-              <span className={`text-[10px] font-bold mt-1 ${currentBadge.color}`}>
-                {currentBadge.label}
-              </span>
-              <span className="text-[8px] text-slate-400 font-medium leading-none mt-0.5">
-                {currentBadge.effect}
-              </span>
-            </div>
-
-            {/* Score & Best Section */}
-            <div className="flex-1 flex flex-col gap-2">
-              {/* Columns Passed This Run */}
-              <div className="flex items-center justify-between bg-slate-950/70 px-3 py-1.5 rounded-xl border border-white/10">
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-black text-cyan-400 uppercase tracking-wider">Run Columns</span>
-                  {reefColumn !== undefined && (
-                    <span className="text-[9px] text-slate-400 font-sans">
-                      Reef {reefLevel} ({reefColumn}/10)
-                    </span>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span id="game-current-score" className="text-xl font-black text-white font-game">
-                    {score}
-                  </span>
-                </div>
-              </div>
-
-              {/* Best High Score */}
-              <div className="flex items-center justify-between bg-slate-950/70 px-3 py-1.5 rounded-xl border border-white/10 relative">
-                <div className="flex items-center gap-1">
-                  <Trophy className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">Best Trophy</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {isNewHighScore && (
-                    <span className="text-[9px] font-black uppercase bg-rose-500 text-white px-1.5 py-0.5 rounded-full animate-bounce shadow-md">
-                      NEW!
-                    </span>
-                  )}
-                  <span id="game-best-score" className="text-xl font-black text-amber-400 font-game">
-                    {highScore}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Reef Fragments Summary */}
-          <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-col gap-1 text-left">
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="font-bold text-amber-300">
-                Fragments (Attempt):
-              </span>
-              <span className="text-slate-400 text-[9px]">Reef {reefLevel} Max Kept</span>
-            </div>
-            <div className="flex items-center justify-between bg-slate-950/80 px-2.5 py-1.5 rounded-xl border border-white/5">
-              <div>
-                {attemptFragments && countTotalFragments(attemptFragments) > 0 ? (
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5 opacity-60">
-                      {(Object.entries(attemptFragments) as [FishType, number][])
-                        .filter(([_, c]) => c > 0)
-                        .map(([fish, count]) => (
-                          <span key={fish} className="text-xs font-bold text-rose-300/90 line-through inline-flex items-center gap-1">
-                            <FishBadgeIcon fishType={fish} size={13} />
-                            <span>+{count}</span>
-                          </span>
-                        ))}
-                    </div>
-                    <span className="text-[8px] text-rose-400 font-medium">
-                      Lost (Level not completed)
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-[10px] text-slate-400">None found</span>
-                )}
-              </div>
-
-              <div className="text-right">
-                {reefMaxFragments && countTotalFragments(reefMaxFragments) > 0 ? (
-                  <div className="flex items-center gap-1.5">
-                    {(Object.entries(reefMaxFragments) as [FishType, number][])
-                      .filter(([_, c]) => c > 0)
-                      .map(([fish, count]) => (
-                        <span key={fish} className="text-[11px] font-bold text-cyan-300 inline-flex items-center gap-1">
-                          <FishBadgeIcon fishType={fish} size={13} />
-                          <span>{count} max</span>
-                        </span>
-                      ))}
-                  </div>
-                ) : (
-                  <span className="text-[10px] text-slate-400">0 max</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Action Buttons */}
-        <div className="w-full flex flex-col gap-2.5">
+        <div className="w-full flex flex-col gap-2.5 mt-3 relative z-10">
           <button
             id="restart-game-btn"
             onClick={onRestart}
-            className="w-full py-4 px-6 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 active:from-cyan-600 border-b-4 border-cyan-800 text-white font-black rounded-2xl transition flex items-center justify-center gap-2.5 text-lg shadow-xl cursor-pointer active:scale-98 tracking-wider font-game"
+            className="w-full py-3.5 px-6 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 active:from-cyan-600 border-b-4 border-cyan-800 text-white font-black rounded-2xl transition flex items-center justify-center gap-2.5 text-base shadow-xl cursor-pointer active:scale-98 tracking-wider font-game"
           >
             <RotateCcw className="w-5 h-5 stroke-[2.5]" />
             <span>Replay</span>

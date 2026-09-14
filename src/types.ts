@@ -32,6 +32,7 @@ export interface FishUnlockTier {
   specialPowerTitle?: string;
   specialPowerDesc?: string;
   fragmentsToCollect?: number;
+  achievedLevel?: number;
 }
 
 export type BirdSkin = 'coral' | 'azure' | 'amethyst' | 'mimic' | 'classic' | 'ruby' | 'midnight';
