@@ -12,7 +12,7 @@ export interface BadgeDefinition {
 /**
  * Badge System Definitions:
  * The game starts with a base rate of 0 fragments per reef level.
- * (1) Coral: Requirements: 10 total points (regardless of passing reef levels), Effects: None
+ * (1) Coral: Requirements: 10 total points (regardless of passing reef levels), Effects: Unlocks first 5 reef levels
  * (2) Shell: Requirements: 20 total points (regardless of passing reef levels), Effects: +1 fragments per reef level
  * (3) Nautilus: Requirements: pass reef level 4, Effects: +1 fragments per reef level
  * (4) Diamond: Requirements: pass reef level 50, Effects: +2 fragments per reef.
@@ -25,7 +25,7 @@ export const BADGES: BadgeDefinition[] = [
     name: 'Coral',
     emoji: '🪸',
     requirement: '10 total pts',
-    effect: 'None',
+    effect: 'Unlocks first 5 reef levels',
     bonusFragments: 0,
   },
   {
@@ -93,7 +93,7 @@ export function isBadgeUnlocked(
     case 'nautilus':
       return (
         !!reefProgress?.clearedReefs[4]?.cleared ||
-        (reefProgress?.unlockedReef ?? 1) > 4
+        (reefProgress?.unlockedReef ?? 1) > 5
       );
     case 'diamond':
       return (
@@ -175,8 +175,10 @@ export function getBadgeProgress(
       if (isAchieved) {
         current = target;
       } else {
-        const unlockedReef = reefProgress?.unlockedReef ?? 1;
-        current = Math.min(target, Math.max(0, unlockedReef - 1));
+        const clearedUpTo4 = [1, 2, 3, 4].filter(
+          (r) => !!reefProgress?.clearedReefs[r]?.cleared
+        ).length;
+        current = Math.min(target, clearedUpTo4);
       }
       const percent = Math.min(100, Math.round((current / target) * 100));
       return { current, target, unit: 'reefs', percent, isAchieved };
@@ -187,8 +189,10 @@ export function getBadgeProgress(
       if (isAchieved) {
         current = target;
       } else {
-        const unlockedReef = reefProgress?.unlockedReef ?? 1;
-        current = Math.min(target, Math.max(0, unlockedReef - 1));
+        const clearedTotal = Object.keys(reefProgress?.clearedReefs || {}).filter(
+          (k) => !!reefProgress?.clearedReefs[Number(k)]?.cleared
+        ).length;
+        current = Math.min(target, clearedTotal);
       }
       const percent = Math.min(100, Math.round((current / target) * 100));
       return { current, target, unit: 'reefs', percent, isAchieved };
@@ -342,7 +346,7 @@ export function getHighestBadge(
       id: 'coral',
       label: 'Coral',
       emoji: '🪸',
-      effect: 'None',
+      effect: 'Unlocks first 5 reef levels',
       color: 'text-amber-300',
       border: 'border-amber-600/60',
       bg: 'bg-gradient-to-b from-amber-700/40 to-amber-900/60',

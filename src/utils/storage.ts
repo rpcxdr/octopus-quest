@@ -122,8 +122,9 @@ export function resetReefProgress(): ReefProgress {
   } catch {
     // ignore
   }
+  const isCoralUnlocked = loadGameStats().totalScore >= 10;
   return {
-    unlockedReef: 1,
+    unlockedReef: isCoralUnlocked ? 5 : 1,
     currentReef: 1,
     clearedReefs: {},
     gulfStreamUnlocked: false,
@@ -136,9 +137,18 @@ export function resetReefProgress(): ReefProgress {
 /**
  * Calculates the highest unlocked reef directly from completed reefs.
  * Reef 1 is unlocked by default. To unlock Reef N, the player must complete Reef N-1.
- * A player can never play reefs higher than 1 more than the highest completed reef.
+ * If Coral Rune power is unlocked (10 total points earned), the first five reef levels
+ * (Reefs 1, 2, 3, 4, and 5) are immediately unlocked!
  */
-export function computeUnlockedReef(clearedReefs: Record<number, { cleared: boolean }>): number {
+export function computeUnlockedReef(
+  clearedReefs: Record<number, { cleared: boolean }>,
+  isCoralUnlocked?: boolean
+): number {
+  const coralActive =
+    isCoralUnlocked !== undefined
+      ? isCoralUnlocked
+      : loadGameStats().totalScore >= 10;
+
   let highestCompleted = 0;
   for (let r = 1; r <= 50; r++) {
     if (clearedReefs[r]?.cleared) {
@@ -147,19 +157,26 @@ export function computeUnlockedReef(clearedReefs: Record<number, { cleared: bool
       }
     }
   }
-  return Math.min(50, highestCompleted + 1);
+  const minUnlocked = coralActive ? 5 : 1;
+  return Math.min(50, Math.max(minUnlocked, highestCompleted + 1));
 }
 
 export function loadReefProgress(): ReefProgress {
   try {
+    const curStats = loadGameStats();
+    const isCoralUnlocked = curStats.totalScore >= 10;
     const raw = localStorage.getItem(REEF_PROGRESS_KEY);
-    if (!raw) return DEFAULT_REEF_PROGRESS;
+    if (!raw) {
+      return {
+        ...DEFAULT_REEF_PROGRESS,
+        unlockedReef: isCoralUnlocked ? 5 : 1,
+      };
+    }
     const parsed = JSON.parse(raw);
     const clearedReefs = parsed.clearedReefs || {};
 
-    // Strictly validate and compute unlockedReef from completed reefs:
-    // A player can only play reefs up to 1 more than the highest completed reef.
-    const unlocked = computeUnlockedReef(clearedReefs);
+    // Strictly validate and compute unlockedReef from completed reefs and Coral Rune power:
+    const unlocked = computeUnlockedReef(clearedReefs, isCoralUnlocked);
     const current = Math.max(1, Math.min(unlocked, Number(parsed.currentReef) || 1));
 
     const progress: ReefProgress = {
@@ -183,7 +200,11 @@ export function loadReefProgress(): ReefProgress {
 
     return progress;
   } catch {
-    return DEFAULT_REEF_PROGRESS;
+    const isCoralUnlocked = loadGameStats().totalScore >= 10;
+    return {
+      ...DEFAULT_REEF_PROGRESS,
+      unlockedReef: isCoralUnlocked ? 5 : 1,
+    };
   }
 }
 
@@ -261,7 +282,7 @@ export function completeReefLevel(
 
   const updated: ReefProgress = {
     unlockedReef: newUnlocked,
-    currentReef: Math.min(newUnlocked, reefNumber + (nextReefUnlocked ? 1 : 0)),
+    currentReef: reefNumber,
     clearedReefs: updatedCleared,
     gulfStreamUnlocked: Boolean(
       progress.gulfStreamUnlocked ||
@@ -451,6 +472,21 @@ export function saveGameStats(
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch {
     // fallback
+  }
+
+  // If Coral Rune power was unlocked (10 total points), ensure unlockedReef is at least 5 in saved progress
+  if (current.totalScore < 10 && updated.totalScore >= 10) {
+    try {
+      const rawProg = localStorage.getItem(REEF_PROGRESS_KEY);
+      if (rawProg) {
+        const parsedProg = JSON.parse(rawProg);
+        const unlocked = Math.max(5, Number(parsedProg.unlockedReef) || 1);
+        parsedProg.unlockedReef = unlocked;
+        localStorage.setItem(REEF_PROGRESS_KEY, JSON.stringify(parsedProg));
+      }
+    } catch {
+      // ignore
+    }
   }
 
   return { stats: updated, isNewHighScore };

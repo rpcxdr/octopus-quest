@@ -120,9 +120,9 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
               {/* Shockwave ripple expanding when the stamp impacts */}
               <motion.div
                 initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: [0.5, 1.45], opacity: [0, 0.9, 0] }}
+                animate={{ scale: [0.5, 1.4], opacity: [0, 0.9, 0] }}
                 transition={{ delay: 0.18, duration: 0.32, ease: 'easeOut' }}
-                className="absolute w-44 h-16 rounded-2xl border-2 border-rose-500/80 shadow-[0_0_25px_rgba(244,63,94,0.9)]"
+                className="absolute w-60 h-20 rounded-2xl border-2 border-rose-500/80 shadow-[0_0_30px_rgba(244,63,94,0.9)]"
               />
 
               {/* Heavy impact slam stamp */}
@@ -134,14 +134,11 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
                   times: [0, 0.72, 1],
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="relative z-40 bg-slate-950/95 border-2 border-rose-500 rounded-2xl px-4 py-2.5 shadow-[0_0_32px_rgba(244,63,94,0.75)] flex flex-col items-center justify-center text-center ring-2 ring-rose-500/30"
+                className="relative z-40 bg-slate-950/95 border-2 border-rose-500 rounded-2xl px-6 py-3.5 sm:px-7 sm:py-4 shadow-[0_0_36px_rgba(244,63,94,0.85)] flex items-center justify-center text-center ring-2 ring-rose-500/30"
               >
-                <div className="flex items-center gap-1.5 text-rose-400 font-game font-black text-sm uppercase tracking-widest drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-                  <FishSkeletonIcon className="w-4 h-4 text-rose-400 animate-pulse" strokeWidth={2} />
-                  <span>Records Lost</span>
-                </div>
-                <div className="text-[9.5px] font-bold text-rose-200/90 tracking-wide mt-0.5 whitespace-nowrap">
-                  Must clear reef to bank records
+                <div className="flex items-center gap-2.5 text-rose-400 font-game font-black text-lg sm:text-xl uppercase tracking-widest drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]">
+                  <FishSkeletonIcon className="w-6 h-6 text-rose-400 animate-pulse shrink-0" strokeWidth={2.25} />
+                  <span>Rewards Lost</span>
                 </div>
               </motion.div>
             </div>

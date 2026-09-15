@@ -2,6 +2,7 @@ import { BackgroundAesthetic } from './backgroundAesthetics';
 
 export type ColumnThemeType =
   | 'original_kelp'
+  | 'block'
   | 'minecraft'
   | 'candy'
   | 'tangled_kelp'
@@ -11,7 +12,7 @@ export type ColumnThemeType =
 
 export const COLUMN_THEMES: ColumnThemeType[] = [
   'original_kelp',
-  'minecraft',
+  'block',
   'candy',
   'tangled_kelp',
   'matrix',
@@ -38,7 +39,7 @@ export interface ColumnThemePalette {
  * Returns the column theme for a given reef level.
  * Changes every 2 reefs through the 7 requested themes:
  * 1-2: original kelp-pipe columns
- * 3-4: minecraft columns
+ * 3-4: block columns
  * 5-6: candy columns
  * 7-8: tangled kelp columns
  * 9-10: matrix-style columns
@@ -57,8 +58,9 @@ export function getColumnThemeName(reefLevel: number): string {
   switch (theme) {
     case 'original_kelp':
       return 'Atlantis Ruins';
+    case 'block':
     case 'minecraft':
-      return 'Minecraft Columns';
+      return 'Block Columns';
     case 'candy':
       return 'Candy Columns';
     case 'tangled_kelp':
@@ -173,6 +175,7 @@ export function getColumnThemePalette(
       };
     }
 
+    case 'block':
     case 'minecraft': {
       if (isVolcanic) {
         return {

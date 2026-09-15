@@ -41,21 +41,21 @@ export const BIRD_SKINS: Record<BirdSkin, BirdSkinConfig> = {
   mimic: {
     id: 'mimic',
     name: 'Golden Mimic',
-    bodyColor: '#F59E0B',    // sunlit golden amber
-    bellyColor: '#FEF3C7',   // warm sand
-    wingColor: '#D97706',    // amber tentacles
-    accentColor: '#FCD34D',  // gold suction cups
-    spotColor: '#B45309',
+    bodyColor: '#FACC15',    // bright sunny canary yellow
+    bellyColor: '#FEFCE8',   // light creamy pale yellow belly
+    wingColor: '#EAB308',    // vibrant golden yellow fins
+    accentColor: '#FEF08A',  // glowing luminous yellow highlight
+    spotColor: '#CA8A04',    // golden quill spines & freckles
   },
   // Legacy aliases to preserve saved local preferences smoothly
   classic: {
     id: 'mimic',
     name: 'Golden Mimic',
-    bodyColor: '#F59E0B',
-    bellyColor: '#FEF3C7',
-    wingColor: '#D97706',
-    accentColor: '#FCD34D',
-    spotColor: '#B45309',
+    bodyColor: '#FACC15',
+    bellyColor: '#FEFCE8',
+    wingColor: '#EAB308',
+    accentColor: '#FEF08A',
+    spotColor: '#CA8A04',
   },
   ruby: {
     id: 'coral',

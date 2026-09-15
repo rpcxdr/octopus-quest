@@ -432,7 +432,7 @@ function drawAmbientParticles(
 /**
  * Renders the Obstacles with 7 rotating Column Themes changing every 2 reefs:
  * 1. Original Kelp-Pipe Columns (lush swaying kelp with air bladders & curled fronds)
- * 2. Minecraft Columns (16-bit voxel blocks with pixel dithering & stepped slabs)
+ * 2. Block Columns (16-bit voxel blocks with pixel dithering & stepped slabs)
  * 3. Candy Columns (glossy peppermint spiral candy canes with sugar sheen)
  * 4. Tangled Kelp Columns (interwoven fibrous vines & braided organic ropes)
  * 5. Matrix-Style Columns (cybernetic terminal scanlines & cascading neon glyphs)
@@ -467,8 +467,9 @@ export function drawPipes(
       case 'original_kelp':
         drawKelpColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
         break;
+      case 'block':
       case 'minecraft':
-        drawMinecraftColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
+        drawBlockColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
         break;
       case 'candy':
         drawCandyColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
@@ -1451,9 +1452,9 @@ function drawAtlantisMedallionBadge(
 }
 
 // ==========================================
-// 2. THEME: MINECRAFT COLUMNS
+// 2. THEME: BLOCK COLUMNS
 // ==========================================
-function drawMinecraftColumn(
+function drawBlockColumn(
   ctx: CanvasRenderingContext2D,
   x: number,
   w: number,
@@ -1466,16 +1467,16 @@ function drawMinecraftColumn(
   palette: ColumnThemePalette
 ) {
   if (topH > 0) {
-    drawMinecraftPillarBody(ctx, x, 0, w, topH - capHeight, palette);
-    drawMinecraftCap(ctx, x - 4, topH - capHeight, w + 8, capHeight, true, undefined, palette);
+    drawBlockPillarBody(ctx, x, 0, w, topH - capHeight, palette);
+    drawBlockCap(ctx, x - 4, topH - capHeight, w + 8, capHeight, true, undefined, palette);
   }
   if (botH > 0) {
-    drawMinecraftCap(ctx, x - 4, botY, w + 8, capHeight, false, colNum, palette);
-    drawMinecraftPillarBody(ctx, x, botY + capHeight, w, botH - capHeight, palette);
+    drawBlockCap(ctx, x - 4, botY, w + 8, capHeight, false, colNum, palette);
+    drawBlockPillarBody(ctx, x, botY + capHeight, w, botH - capHeight, palette);
   }
 }
 
-function drawMinecraftPillarBody(
+function drawBlockPillarBody(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -1519,7 +1520,7 @@ function drawMinecraftPillarBody(
       // Right shaded bevel
       ctx.fillRect(bx + bw - 2, by, 2, bh);
 
-      // Pixel texture flecks (Minecraft block dithering)
+      // Pixel texture flecks (Block column dithering)
       const seed = (c * 17 + r * 31) % 7;
       ctx.fillStyle = palette.accentPrimary;
       ctx.fillRect(bx + 4 + (seed % 3) * 4, by + 4 + (seed % 4) * 3, 3, 3);
@@ -1537,7 +1538,7 @@ function drawMinecraftPillarBody(
   ctx.restore();
 }
 
-function drawMinecraftCap(
+function drawBlockCap(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -1556,7 +1557,7 @@ function drawMinecraftCap(
   ctx.fillStyle = palette.capGradient[1];
   ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
 
-  // Minecraft stepped notch near the gap boundary
+  // Block column stepped notch near the gap boundary
   const notchH = 8;
   const notchY = isTop ? y + h - notchH : y;
   ctx.fillStyle = palette.capGradient[2];

@@ -169,6 +169,7 @@ export const FlappyGame: React.FC = () => {
   const [priorTotalFragments, setPriorTotalFragments] = useState<FishFragmentCounts | null>(null);
   const [clearedAtlantisGate, setClearedAtlantisGate] = useState<boolean>(false);
   const [clearedGulfStream, setClearedGulfStream] = useState<boolean>(false);
+  const [clearedReefLevel, setClearedReefLevel] = useState<number>(() => loadReefProgress().currentReef || 1);
   const [lastClearTime, setLastClearTime] = useState<number | undefined>(undefined);
   const [currentFastStreak, setCurrentFastStreak] = useState<number>(() => loadReefProgress().currentFastReefsInRow || 0);
 
@@ -375,6 +376,14 @@ export const FlappyGame: React.FC = () => {
       );
     }
   }, [allReefFragments, stats.totalScore, reefProgress]);
+
+  // Sync Coral Rune unlock effect (unlocks first 5 reef levels) with reefProgress state
+  useEffect(() => {
+    if (stats.totalScore >= 10 && reefProgress.unlockedReef < 5) {
+      const freshProgress = loadReefProgress();
+      setReefProgress(freshProgress);
+    }
+  }, [stats.totalScore, reefProgress.unlockedReef]);
 
   // Handle choosing / switching to a specific reef (1-50)
   const handleSelectReef = useCallback((reefNumber: number) => {
@@ -704,6 +713,17 @@ export const FlappyGame: React.FC = () => {
     setGameState('PLAYING');
   }, [allReefFragments, stats.totalScore, reefProgress]);
 
+  // Handle exiting to menu specifically from Reef Cleared modal:
+  // advances home screen reef selection to next unlocked reef so the player is ready for it
+  const handleExitToMenuFromCleared = useCallback(() => {
+    const s = stateRef.current;
+    const nextReef = Math.min(TOTAL_REEF_LEVELS, s.currentReef + 1);
+    const updated = saveReefSelection(nextReef);
+    setReefProgress(updated);
+    s.currentReef = updated.currentReef;
+    handleRestart();
+  }, [handleRestart]);
+
   // Trigger touch ripple on screen
   const addRipple = (clientX: number, clientY: number) => {
     if (!containerRef.current) return;
@@ -998,6 +1018,8 @@ export const FlappyGame: React.FC = () => {
 
               // Check if all 10 columns of this Reef have been successfully cleared!
               if (s.reefScore >= COLUMNS_PER_REEF) {
+                const clearedLevel = s.currentReef;
+                setClearedReefLevel(clearedLevel);
                 s.gameState = 'REEF_CLEARED';
                 s.reefClearedTime = Date.now();
                 setGameState('REEF_CLEARED');
@@ -1010,7 +1032,7 @@ export const FlappyGame: React.FC = () => {
                 // Check if all 50 reefs in order were cleared without dying
                 const isFullRunWithoutDying =
                   s.runStartReef === 1 &&
-                  s.currentReef === TOTAL_REEF_LEVELS &&
+                  clearedLevel === TOTAL_REEF_LEVELS &&
                   s.reefsClearedInRun >= TOTAL_REEF_LEVELS;
 
                 const clearTime = s.reefElapsedTime;
@@ -1023,7 +1045,7 @@ export const FlappyGame: React.FC = () => {
                   atlantisGateUnlockedNow,
                   gulfStreamUnlockedNow,
                 } = completeReefLevel(
-                  s.currentReef,
+                  clearedLevel,
                   s.flapsCount,
                   isFullRunWithoutDying,
                   clearTime
@@ -1040,13 +1062,13 @@ export const FlappyGame: React.FC = () => {
                 // Retain and record max fragments for this completed reef
                 const priorStoredFragments = loadReefFragments();
                 const priorReefRecord = {
-                  ...(priorStoredFragments[s.currentReef] || getReefMaxFragments(s.currentReef))
+                  ...(priorStoredFragments[clearedLevel] || getReefMaxFragments(clearedLevel))
                 };
                 setPriorReefMaxFragments(priorReefRecord);
                 const prevFragsOnClear = getTotalFragmentsByFish(priorStoredFragments);
                 setPriorTotalFragments(prevFragsOnClear);
                 const { updated: updatedFragments } = recordReefFragments(
-                  s.currentReef,
+                  clearedLevel,
                   s.currentAttemptFragments
                 );
                 setAllReefFragments(updatedFragments);
@@ -1420,93 +1442,69 @@ export const FlappyGame: React.FC = () => {
 
       {/* In-Game Top Floating Score & Reef Progress HUD */}
       {(gameState === 'PLAYING' || (gameState === 'IDLE' && isContinuingRun)) && (
-        <div className="absolute top-3 inset-x-3 flex flex-col gap-2 z-15 pointer-events-none">
-          <div className="flex items-start justify-between">
-            {/* Reef Level & Column Progress Card */}
-            <div className="bg-slate-950/80 backdrop-blur-xl border border-cyan-500/25 rounded-2xl px-3 py-1.5 shadow-2xl pointer-events-auto">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-cyan-400">
-                  <Waves className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-black tracking-wider uppercase font-game">
-                    Reef {reefProgress.currentReef}
-                  </span>
-                </div>
-                <span
-                  id="hud-difficulty-badge"
-                  className={`text-[8px] font-black font-sans uppercase px-1.5 py-0.5 rounded-full border ${
-                    difficulty === 'easy'
-                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
-                      : difficulty === 'hard'
-                      ? 'bg-orange-950/80 text-orange-300 border-orange-500/40'
-                      : 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40'
-                  }`}
-                  title={`Reef ${reefProgress.currentReef}: +${getSpeedIncreasePercent(difficulty, reefProgress.currentReef)}% speed (${difficulty} mode)`}
-                >
-                  {difficulty} &bull; +{getSpeedIncreasePercent(difficulty, reefProgress.currentReef)}% spd
+        <div className="absolute top-3 sm:top-4 inset-x-3 sm:inset-x-4 pt-1 px-1 flex flex-col gap-2 z-15 pointer-events-none">
+          <div className="w-full flex items-center justify-between gap-2 shrink-0">
+            {/* (1) Pause Button: same upper left position as stats button on home screen */}
+            <button
+              id="in-game-pause-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPaused((p) => !p);
+              }}
+              className="w-9 h-9 shrink-0 rounded-full bg-slate-950/70 hover:bg-slate-900 border border-white/10 text-white flex items-center justify-center shadow-lg backdrop-blur-xl transition cursor-pointer active:scale-95 pointer-events-auto"
+              title={isPaused ? 'Resume' : 'Pause'}
+            >
+              {isPaused ? (
+                <Play className="w-4 h-4 text-amber-400 fill-amber-400" />
+              ) : (
+                <Pause className="w-4 h-4 text-white" />
+              )}
+            </button>
+
+            {/* (2) Centered Details Panel */}
+            <div
+              id="hud-reef-details-panel"
+              className="flex-1 max-w-[280px] sm:max-w-sm mx-auto bg-slate-950/80 backdrop-blur-xl border border-cyan-500/25 rounded-2xl px-3 py-1.5 shadow-2xl pointer-events-auto text-center flex flex-col items-center justify-center min-w-0"
+            >
+              <div
+                className="text-[10px] sm:text-[11px] font-bold text-cyan-200 tracking-wide truncate max-w-full"
+                title={`Reef ${reefProgress.currentReef}: ${getReefZoneName(reefProgress.currentReef)} - ${getColumnThemeName(reefProgress.currentReef)}`}
+              >
+                <span className="font-game font-black text-cyan-300">
+                  Reef {reefProgress.currentReef}:
+                </span>{' '}
+                <span>
+                  {getReefZoneName(reefProgress.currentReef)} - {getColumnThemeName(reefProgress.currentReef)}
                 </span>
               </div>
-              <div className="text-[11px] font-bold text-slate-200 mt-0.5">
-                Column <span className="text-cyan-300 font-game">{reefColumn}</span>
-                <span className="text-slate-400 font-sans"> / 10</span>
-                {score > reefColumn && (
-                  <span className="text-[10px] text-amber-300 font-normal ml-1.5">
-                    (Run: <span className="font-game font-bold">{score}</span>)
-                  </span>
-                )}
+              <div className="text-[10px] sm:text-[11px] font-bold text-slate-200 mt-0.5 flex items-center justify-center gap-2">
+                <span>
+                  Columns <span className="text-cyan-300 font-game">{reefColumn}</span>
+                  <span className="text-slate-400 font-sans">/10</span>
+                </span>
+                <span>
+                  Best Run: <span className="text-amber-300 font-game">{score}</span>
+                  <span className="text-slate-400 font-sans">/{Math.max(stats.highScore || 0, score)}</span>
+                </span>
               </div>
             </div>
 
-            {/* Center Controls (Mute & Pause) */}
-            <div className="flex items-center gap-1.5 pt-0.5 pointer-events-auto">
-              <button
-                id="in-game-mute-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleMute();
-                }}
-                className="w-8 h-8 rounded-full bg-slate-950/75 hover:bg-slate-900 border border-white/10 text-white flex items-center justify-center backdrop-blur-xl transition cursor-pointer shadow-lg active:scale-95"
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? (
-                  <VolumeX className="w-3.5 h-3.5 text-rose-400" />
-                ) : (
-                  <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                )}
-              </button>
-
-              <button
-                id="in-game-pause-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPaused((p) => !p);
-                }}
-                className="w-8 h-8 rounded-full bg-slate-950/75 hover:bg-slate-900 border border-white/10 text-white flex items-center justify-center backdrop-blur-xl transition cursor-pointer shadow-lg active:scale-95"
-                title={isPaused ? 'Resume' : 'Pause'}
-              >
-                {isPaused ? (
-                  <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                ) : (
-                  <Pause className="w-3.5 h-3.5 text-white" />
-                )}
-              </button>
-            </div>
-
-            {/* Zone Name & High Score Badge */}
-            <div className="bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl px-3 py-1.5 shadow-2xl text-right pointer-events-auto max-w-[140px]">
-              <span className="text-[9px] text-cyan-400 font-black tracking-wide uppercase truncate block" title={getReefZoneName(reefProgress.currentReef)}>
-                {getReefZoneName(reefProgress.currentReef)}
-              </span>
-              <span className="text-[8px] text-teal-300/80 font-bold tracking-tight uppercase truncate block" title={getColumnThemeName(reefProgress.currentReef)}>
-                {getColumnThemeName(reefProgress.currentReef)}
-              </span>
-              <div
-                id="hud-best-score"
-                className="text-xs font-bold text-amber-300 drop-shadow-md font-sans leading-tight mt-0.5 flex items-center justify-end gap-1"
-              >
-                <Trophy className="w-3 h-3 text-amber-400 fill-amber-400" />
-                <span>Best: {stats.highScore}</span>
-              </div>
-            </div>
+            {/* (3) Mute Button: in the same position it is on the home screen */}
+            <button
+              id="in-game-mute-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleMute();
+              }}
+              className="w-9 h-9 shrink-0 rounded-full bg-slate-950/70 hover:bg-slate-900 border border-white/10 text-slate-200 flex items-center justify-center shadow-lg backdrop-blur-xl transition cursor-pointer active:scale-95 pointer-events-auto"
+              title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
+            >
+              {isMuted ? (
+                <VolumeX className="w-4 h-4 text-rose-400" />
+              ) : (
+                <Volume2 className="w-4 h-4 text-emerald-400" />
+              )}
+            </button>
           </div>
 
           {/* 10-Column Progress Bar / Pearl dots */}
@@ -1562,7 +1560,7 @@ export const FlappyGame: React.FC = () => {
                     abilitySnapshot.shieldState === 'active'
                       ? 'bg-cyan-500/30 text-cyan-200 border-cyan-400 ring-2 ring-cyan-400/40 animate-pulse'
                       : abilitySnapshot.shieldState === 'ready'
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
                       : 'bg-slate-900/70 text-slate-400 border-white/10 opacity-70'
                   }`}
                 >
@@ -1793,7 +1791,7 @@ export const FlappyGame: React.FC = () => {
       {gameState === 'GAMEOVER' && (
         <ScoreBoardModal
           score={score}
-          reefLevel={reefProgress.currentReef}
+          reefLevel={stateRef.current.currentReef || reefProgress.currentReef}
           reefColumn={reefColumn}
           highScore={stats.highScore}
           isNewHighScore={isNewHighScore}
@@ -1802,7 +1800,7 @@ export const FlappyGame: React.FC = () => {
           stats={stats}
           difficulty={difficulty}
           attemptFragments={currentAttemptFragments}
-          reefMaxFragments={getReefMaxFragments(reefProgress.currentReef)}
+          reefMaxFragments={getReefMaxFragments(stateRef.current.currentReef || reefProgress.currentReef)}
           totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
           priorTotalFragmentsByFish={priorTotalFragments || undefined}
           onRestart={handleReplayLevel}
@@ -1815,16 +1813,19 @@ export const FlappyGame: React.FC = () => {
       {gameState === 'REEF_CLEARED' && (
         <ReefClearedModal
           isOpen={true}
-          reefLevel={reefProgress.currentReef}
+          reefLevel={clearedReefLevel}
           difficulty={difficulty}
           flapsThisRun={stateRef.current.flapsCount}
           runTotalColumns={stateRef.current.score}
-          bestFlaps={reefProgress.clearedReefs[reefProgress.currentReef]?.fewestFlaps}
+          bestFlaps={
+            reefProgress.clearedReefs[clearedReefLevel]?.bestFlaps ??
+            (reefProgress.clearedReefs[clearedReefLevel] as any)?.fewestFlaps
+          }
           unlockedFish={newlyUnlockedFish}
           selectedFish={selectedFish}
           attemptFragments={currentAttemptFragments}
           priorReefMaxFragments={priorReefMaxFragments}
-          reefMaxFragments={getReefMaxFragments(reefProgress.currentReef)}
+          reefMaxFragments={getReefMaxFragments(clearedReefLevel)}
           totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
           priorTotalFragmentsByFish={priorTotalFragments || undefined}
           isAtlantisGateUnlocked={Boolean(
@@ -1832,7 +1833,7 @@ export const FlappyGame: React.FC = () => {
             stats.atlantisGateUnlocked ||
             clearedAtlantisGate ||
             (stateRef.current.runStartReef === 1 &&
-              stateRef.current.currentReef === TOTAL_REEF_LEVELS &&
+              clearedReefLevel === TOTAL_REEF_LEVELS &&
               stateRef.current.reefsClearedInRun >= TOTAL_REEF_LEVELS)
           )}
           isGulfStreamUnlocked={Boolean(
@@ -1850,7 +1851,7 @@ export const FlappyGame: React.FC = () => {
           onOpenStats={() => {
             setShowStatsModal(true);
           }}
-          onExitToMenu={handleRestart}
+          onExitToMenu={handleExitToMenuFromCleared}
         />
       )}
 

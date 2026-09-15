@@ -2,7 +2,7 @@ import { FishType, Particle, BirdState } from '../types';
 import { getFishThemeColor, getFishDisplayName } from './fish';
 import { SoundController } from './audio';
 import { drawBird } from './renderer';
-import { BIRD_SKINS } from './physics';
+import { BIRD_SKINS, DEFAULT_FISH_SKINS } from './physics';
 import { drawFishBadgeCanvas } from './fishBadgeRenderer';
 
 export interface SplashDroplet {
@@ -1718,7 +1718,8 @@ export function drawFishLevelUpSequence(
     wingTimer: 0,
     alive: true,
   };
-  drawBird(ctx, mockBird, BIRD_SKINS.coral, time, seq.fishType);
+  const skinKey = DEFAULT_FISH_SKINS[seq.fishType] || 'coral';
+  drawBird(ctx, mockBird, BIRD_SKINS[skinKey] || BIRD_SKINS.coral, time, seq.fishType);
   ctx.restore();
 
   // Specular glint on bubble

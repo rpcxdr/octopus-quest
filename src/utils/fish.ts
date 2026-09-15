@@ -21,7 +21,7 @@ export const FISH_LIST: FishUnlockTier[] = [
     description: 'Round and buoyant spiky swimmer with rapid fluttering pectoral fins.',
     badgeEmoji: '🐡',
     themeColor: '#FACC15',
-    accentColor: '#EA580C',
+    accentColor: '#CA8A04',
     specialPowerTitle: 'Survival Shield',
     specialPowerDesc: 'Survival shield lasts 0.5s + 0.5s per level (Lv.1 = 0.5s, Lv.5 = 2.5s). One use per reef.',
     fragmentsToCollect: 10,
