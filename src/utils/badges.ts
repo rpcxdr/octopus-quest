@@ -12,8 +12,8 @@ export interface BadgeDefinition {
 /**
  * Badge System Definitions:
  * The game starts with a base rate of 0 fragments per reef level.
- * (1) Coral: Requirements: 10 total points (regardless of passing reef levels), Effects: Unlocks first 5 reef levels
- * (2) Shell: Requirements: 20 total points (regardless of passing reef levels), Effects: +1 fragments per reef level
+ * (1) Coral: Requirements: 10 total points (regardless of passing reef levels), Effects: +1 fragments per reef level
+ * (2) Shell: Requirements: 20 total points (regardless of passing reef levels), Effects: Unlocks first 5 reef levels
  * (3) Nautilus: Requirements: pass reef level 4, Effects: +1 fragments per reef level
  * (4) Diamond: Requirements: pass reef level 50, Effects: +2 fragments per reef.
  * (5) Gulf Stream: Requirements: Complete 10 levels in a row, each in 10 seconds or less, Effects: +1 fragments / reef
@@ -25,16 +25,16 @@ export const BADGES: BadgeDefinition[] = [
     name: 'Coral',
     emoji: '🪸',
     requirement: '10 total pts',
-    effect: 'Unlocks first 5 reef levels',
-    bonusFragments: 0,
+    effect: '+1 fragments / reef',
+    bonusFragments: 1,
   },
   {
     id: 'shell',
     name: 'Shell',
     emoji: '🐚',
     requirement: '20 total pts',
-    effect: '+1 fragments / reef',
-    bonusFragments: 1,
+    effect: 'Unlocks first 5 reef levels',
+    bonusFragments: 0,
   },
   {
     id: 'nautilus',
@@ -238,12 +238,12 @@ export function getBadgeProgress(
 /**
  * Calculates the base floating fragment rate per reef level based on earned badges.
  * Starts with a base rate of 0 fragments per reef level:
- * - Shell: +1 (at 20 total points)
+ * - Coral: +1 (at 10 total points)
  * - Nautilus: +1 (at Reef 4 cleared)
  * - Diamond: +2 (at Reef 50 cleared)
  * - Gulf Stream: +1 (10 reef levels in a row each in 10s or less)
  * - Atlantis Gate: +1 (Complete all 50 reefs in order without dying)
- * (Coral adds 0 at 10 total points)
+ * (Shell adds 0 at 20 total points)
  * Example: Completed Reef 50 with all badges = 0 + 1 + 1 + 2 + 1 + 1 = 6 base fragments per reef.
  */
 export function getBaseFragments(
@@ -252,7 +252,7 @@ export function getBaseFragments(
   stats?: GameStats
 ): number {
   let base = 0;
-  if (isBadgeUnlocked('shell', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('coral', totalPoints, reefProgress, stats)) {
     base += 1;
   }
   if (isBadgeUnlocked('nautilus', totalPoints, reefProgress, stats)) {
@@ -335,7 +335,7 @@ export function getHighestBadge(
       id: 'shell',
       label: 'Shell',
       emoji: '🐚',
-      effect: '+1 fragments / reef',
+      effect: 'Unlocks first 5 reef levels',
       color: 'text-slate-200',
       border: 'border-slate-400/60',
       bg: 'bg-gradient-to-b from-slate-500/40 to-slate-700/60',
@@ -346,7 +346,7 @@ export function getHighestBadge(
       id: 'coral',
       label: 'Coral',
       emoji: '🪸',
-      effect: 'Unlocks first 5 reef levels',
+      effect: '+1 fragments / reef',
       color: 'text-amber-300',
       border: 'border-amber-600/60',
       bg: 'bg-gradient-to-b from-amber-700/40 to-amber-900/60',

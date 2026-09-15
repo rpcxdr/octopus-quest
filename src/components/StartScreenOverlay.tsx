@@ -138,7 +138,7 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
               textShadow: '0 4px 0 #020617, 0 8px 16px rgba(0,0,0,0.6)',
             }}
           >
-            Flappy Octopus
+            Octopus Quest
           </h1>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-200/80 mt-0.5">
             50 Deep Sea Reefs

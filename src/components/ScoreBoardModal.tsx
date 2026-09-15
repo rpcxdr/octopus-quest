@@ -9,6 +9,7 @@ import { REEF_FISH_ORDER } from './ReefFragmentRecordList';
 
 interface ScoreBoardModalProps {
   score?: number;
+  reefsClearedInRun?: number;
   reefLevel: number;
   reefColumn?: number;
   highScore?: number;
@@ -27,7 +28,12 @@ interface ScoreBoardModalProps {
 }
 
 export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
+  score,
+  reefsClearedInRun,
   reefLevel,
+  reefColumn,
+  highScore,
+  isNewHighScore,
   attemptFragments,
   reefMaxFragments,
   totalFragmentsByFish,
@@ -35,6 +41,12 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
   onRestart,
   onGoHome,
 }) => {
+  // Check if any fragments were collected during this swim attempt
+  const hasCollectedFragments = REEF_FISH_ORDER.some((fish) => {
+    const count = attemptFragments?.[fish] || 0;
+    return count > 0;
+  });
+
   // Determine if any new record was achieved during this swim attempt
   const hasNewRecords = REEF_FISH_ORDER.some((fish) => {
     const collected = attemptFragments?.[fish] || 0;
@@ -82,68 +94,107 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
           Reef {reefLevel}: {getReefZoneName(reefLevel)}
         </div>
 
-        {/* Reused Fragment Records Summary Layout with Lost Achievements Overlay */}
-        <div className="w-full relative my-1 overflow-visible">
-          <ReefClearedRecordColumns
-            attemptFragments={attemptFragments}
-            reefMaxFragments={reefMaxFragments}
-            totalFragmentsByFish={totalFragmentsByFish}
-            priorTotalFragmentsByFish={priorTotalFragmentsByFish}
-            isGameOver={true}
-          />
-
-          {/* Emotionally impactful 0.5s animation overlay showing you have lost all new records */}
-          {hasNewRecords && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none overflow-hidden rounded-2xl">
-              {/* Crimson flash pulse across the achievements container */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: [0, 0.45, 0.2] }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-                className="absolute inset-0 bg-rose-950/60 border border-rose-500/40 rounded-2xl"
-              />
-
-              {/* Dynamic diagonal slash lines cutting across achievements */}
-              <motion.div
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: 1, opacity: 1 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="absolute top-1/2 left-1 right-1 h-1 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_20px_rgba(244,63,94,1)] -rotate-6 origin-center"
-              />
-              <motion.div
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: 1, opacity: 0.9 }}
-                transition={{ delay: 0.06, duration: 0.2, ease: 'easeOut' }}
-                className="absolute top-1/2 left-3 right-3 h-0.5 bg-rose-300 shadow-[0_0_12px_rgba(255,255,255,0.9)] -rotate-6 origin-center"
-              />
-
-              {/* Shockwave ripple expanding when the stamp impacts */}
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: [0.5, 1.4], opacity: [0, 0.9, 0] }}
-                transition={{ delay: 0.18, duration: 0.32, ease: 'easeOut' }}
-                className="absolute w-60 h-20 rounded-2xl border-2 border-rose-500/80 shadow-[0_0_30px_rgba(244,63,94,0.9)]"
-              />
-
-              {/* Heavy impact slam stamp */}
-              <motion.div
-                initial={{ scale: 2.2, opacity: 0, rotate: -12 }}
-                animate={{ scale: [2.2, 0.95, 1], opacity: 1, rotate: -3 }}
-                transition={{
-                  duration: 0.48,
-                  times: [0, 0.72, 1],
-                  ease: [0.16, 1, 0.3, 1],
-                }}
-                className="relative z-40 bg-slate-950/95 border-2 border-rose-500 rounded-2xl px-6 py-3.5 sm:px-7 sm:py-4 shadow-[0_0_36px_rgba(244,63,94,0.85)] flex items-center justify-center text-center ring-2 ring-rose-500/30"
-              >
-                <div className="flex items-center gap-2.5 text-rose-400 font-game font-black text-lg sm:text-xl uppercase tracking-widest drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]">
-                  <FishSkeletonIcon className="w-6 h-6 text-rose-400 animate-pulse shrink-0" strokeWidth={2.25} />
-                  <span>Rewards Lost</span>
-                </div>
-              </motion.div>
+        {/* Survival Streak Info Banner */}
+        <div
+          id="game-over-survival-streak"
+          className="w-full mb-3 px-3.5 py-2.5 bg-gradient-to-r from-amber-500/15 via-slate-800/60 to-cyan-500/15 border border-amber-400/30 rounded-2xl flex items-center justify-between relative z-10 shadow-inner"
+        >
+          <div className="flex flex-col text-left">
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+              <span>🔥 Survival Streak</span>
+              {isNewHighScore && (
+                <span className="px-1.5 py-0.5 bg-amber-400 text-slate-950 text-[9px] font-black rounded font-sans leading-none">
+                  NEW BEST
+                </span>
+              )}
+            </span>
+            <span className="text-xs text-slate-300">
+              {reefsClearedInRun && reefsClearedInRun > 0
+                ? `${reefsClearedInRun} ${reefsClearedInRun === 1 ? 'Reef' : 'Reefs'} Cleared`
+                : `Reached Column ${reefColumn || 1}/10`}
+            </span>
+          </div>
+          <div className="text-right">
+            <div className="flex items-baseline justify-end gap-1">
+              <span className="text-2xl font-black font-game text-amber-300">
+                {score ?? 0}
+              </span>
+              <span className="text-[10px] text-amber-200/80 font-bold">
+                cols
+              </span>
             </div>
-          )}
+            {highScore !== undefined && highScore > 0 && (
+              <span className="text-[10px] text-slate-400 block -mt-0.5">
+                Best: {Math.max(highScore, score ?? 0)} cols
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Reused Fragment Records Summary Layout with Lost Achievements Overlay (only if fragments were collected) */}
+        {hasCollectedFragments && (
+          <div className="w-full relative my-1 overflow-visible">
+            <ReefClearedRecordColumns
+              attemptFragments={attemptFragments}
+              reefMaxFragments={reefMaxFragments}
+              totalFragmentsByFish={totalFragmentsByFish}
+              priorTotalFragmentsByFish={priorTotalFragmentsByFish}
+              isGameOver={true}
+            />
+
+            {/* Emotionally impactful 0.5s animation overlay showing you have lost all new records */}
+            {hasNewRecords && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none overflow-hidden rounded-2xl">
+                {/* Crimson flash pulse across the achievements container */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 0.45, 0.2] }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                  className="absolute inset-0 bg-rose-950/60 border border-rose-500/40 rounded-2xl"
+                />
+
+                {/* Dynamic diagonal slash lines cutting across achievements */}
+                <motion.div
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                  className="absolute top-1/2 left-1 right-1 h-1 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_20px_rgba(244,63,94,1)] -rotate-6 origin-center"
+                />
+                <motion.div
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 0.9 }}
+                  transition={{ delay: 0.06, duration: 0.2, ease: 'easeOut' }}
+                  className="absolute top-1/2 left-3 right-3 h-0.5 bg-rose-300 shadow-[0_0_12px_rgba(255,255,255,0.9)] -rotate-6 origin-center"
+                />
+
+                {/* Shockwave ripple expanding when the stamp impacts */}
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: [0.5, 1.4], opacity: [0, 0.9, 0] }}
+                  transition={{ delay: 0.18, duration: 0.32, ease: 'easeOut' }}
+                  className="absolute w-60 h-20 rounded-2xl border-2 border-rose-500/80 shadow-[0_0_30px_rgba(244,63,94,0.9)]"
+                />
+
+                {/* Heavy impact slam stamp */}
+                <motion.div
+                  initial={{ scale: 2.2, opacity: 0, rotate: -12 }}
+                  animate={{ scale: [2.2, 0.95, 1], opacity: 1, rotate: -3 }}
+                  transition={{
+                    duration: 0.48,
+                    times: [0, 0.72, 1],
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                  className="relative z-40 bg-slate-950/95 border-2 border-rose-500 rounded-2xl px-6 py-3.5 sm:px-7 sm:py-4 shadow-[0_0_36px_rgba(244,63,94,0.85)] flex items-center justify-center text-center ring-2 ring-rose-500/30"
+                >
+                  <div className="flex items-center gap-2.5 text-rose-400 font-game font-black text-lg sm:text-xl uppercase tracking-widest drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]">
+                    <FishSkeletonIcon className="w-6 h-6 text-rose-400 animate-pulse shrink-0" strokeWidth={2.25} />
+                    <span>Rewards Lost</span>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="w-full flex flex-col gap-2.5 mt-3 relative z-10">

@@ -11,6 +11,9 @@ interface ReefClearedModalProps {
   difficulty?: GameDifficulty;
   flapsThisRun?: number;
   runTotalColumns?: number;
+  reefsClearedInRun?: number;
+  highScore?: number;
+  isNewHighScore?: boolean;
   bestFlaps?: number;
   unlockedFish?: FishUnlockTier | null;
   selectedFish?: FishType;
@@ -36,6 +39,9 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
   difficulty: _difficulty = 'medium',
   flapsThisRun,
   runTotalColumns,
+  reefsClearedInRun,
+  highScore,
+  isNewHighScore,
   bestFlaps,
   unlockedFish,
   selectedFish,
@@ -145,15 +151,42 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
             </div>
           )}
 
-          {/* Continuous Survival Run Banner (if applicable) */}
-          {runTotalColumns !== undefined && runTotalColumns > 10 && (
-            <div className="w-full mb-3 px-3 py-1.5 bg-gradient-to-r from-amber-500/15 via-teal-500/10 to-cyan-500/15 rounded-xl border border-amber-400/30 text-[11px] text-amber-200 flex items-center justify-between">
-              <span className="font-bold flex items-center gap-1">
-                🔥 Continuous Survival Run:
-              </span>
-              <span className="font-black font-game text-amber-300 text-sm">
-                {runTotalColumns} Columns
-              </span>
+          {/* Survival Streak Info Banner */}
+          {runTotalColumns !== undefined && (
+            <div
+              id="reef-cleared-survival-streak"
+              className="w-full mb-3 px-3.5 py-2.5 bg-gradient-to-r from-amber-500/20 via-teal-500/15 to-cyan-500/20 rounded-2xl border border-amber-400/40 text-amber-200 flex items-center justify-between shadow-md"
+            >
+              <div className="flex flex-col text-left">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <span>🔥 Survival Streak</span>
+                  {isNewHighScore && (
+                    <span className="px-1.5 py-0.5 bg-amber-400 text-slate-950 text-[9px] font-black rounded font-sans leading-none">
+                      NEW BEST
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs text-slate-300">
+                  {reefsClearedInRun && reefsClearedInRun > 0
+                    ? `${reefsClearedInRun} ${reefsClearedInRun === 1 ? 'Reef' : 'Reefs'} Cleared`
+                    : 'Streak Active'}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="flex items-baseline justify-end gap-1">
+                  <span className="text-2xl font-black font-game text-amber-300">
+                    {runTotalColumns}
+                  </span>
+                  <span className="text-[10px] text-amber-200/80 font-bold">
+                    cols
+                  </span>
+                </div>
+                {highScore !== undefined && highScore > 0 && (
+                  <span className="text-[10px] text-slate-400 block -mt-0.5">
+                    Best: {Math.max(highScore, runTotalColumns)} cols
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

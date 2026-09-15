@@ -377,9 +377,9 @@ export const FlappyGame: React.FC = () => {
     }
   }, [allReefFragments, stats.totalScore, reefProgress]);
 
-  // Sync Coral Rune unlock effect (unlocks first 5 reef levels) with reefProgress state
+  // Sync Shell Rune unlock effect (unlocks first 5 reef levels) with reefProgress state
   useEffect(() => {
-    if (stats.totalScore >= 10 && reefProgress.unlockedReef < 5) {
+    if (stats.totalScore >= 20 && reefProgress.unlockedReef < 5) {
       const freshProgress = loadReefProgress();
       setReefProgress(freshProgress);
     }
@@ -680,21 +680,9 @@ export const FlappyGame: React.FC = () => {
     s.pickupEffects = [];
     s.recordJuiceState = createRecordJuiceState();
 
-    // Immediately start playing and apply initial flap
-    s.gameState = 'PLAYING';
+    s.gameState = 'IDLE';
     s.isPaused = false;
     s.reefElapsedTime = 0;
-    const flapRes = s.fishBehavior.onFlap(s.bird, config);
-    if (flapRes.velocity !== undefined) s.bird.velocity = flapRes.velocity;
-    if (flapRes.rotation !== undefined) s.bird.rotation = flapRes.rotation;
-    s.flapsCount += 1;
-    s.runTotalFlaps += 1;
-    sound.playFlap();
-    if (s.selectedFish === 'singray') {
-      s.particles.push(...createHydroDashWakeParticles(s.bird));
-    } else {
-      s.particles.push(...createFlapPuff(s.bird));
-    }
 
     setScore(0);
     setReefColumn(0);
@@ -710,7 +698,7 @@ export const FlappyGame: React.FC = () => {
     setLastClearTime(undefined);
     setCurrentFastStreak(0);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
-    setGameState('PLAYING');
+    setGameState('IDLE');
   }, [allReefFragments, stats.totalScore, reefProgress]);
 
   // Handle exiting to menu specifically from Reef Cleared modal:
@@ -1791,6 +1779,7 @@ export const FlappyGame: React.FC = () => {
       {gameState === 'GAMEOVER' && (
         <ScoreBoardModal
           score={score}
+          reefsClearedInRun={stateRef.current.reefsClearedInRun}
           reefLevel={stateRef.current.currentReef || reefProgress.currentReef}
           reefColumn={reefColumn}
           highScore={stats.highScore}
@@ -1817,6 +1806,9 @@ export const FlappyGame: React.FC = () => {
           difficulty={difficulty}
           flapsThisRun={stateRef.current.flapsCount}
           runTotalColumns={stateRef.current.score}
+          reefsClearedInRun={stateRef.current.reefsClearedInRun}
+          highScore={stats.highScore}
+          isNewHighScore={isNewHighScore}
           bestFlaps={
             reefProgress.clearedReefs[clearedReefLevel]?.bestFlaps ??
             (reefProgress.clearedReefs[clearedReefLevel] as any)?.fewestFlaps

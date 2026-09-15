@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Award, Flame, Zap, Trash2, X, Check, ChevronRight, Home, Compass } from 'lucide-react';
+import { Trophy, Award, Flame, Zap, Trash2, X, Check, ChevronRight, ChevronDown, Sparkles, Home, Compass } from 'lucide-react';
 import { AllReefFragments, BadgeId, BirdSkin, FishType, GameStats, ReefProgress } from '../types';
 import { getBestReefScore } from '../utils/fish';
 import { BADGES, isBadgeUnlocked, getBaseFragments, getBadgeProgress } from '../utils/badges';
 import { TOTAL_REEF_LEVELS } from '../utils/reef';
 import { getReefLevelStyle } from '../utils/backgroundAesthetics';
+import { countTotalFragments } from '../utils/fragments';
 import { FishFragmentArchiveModal } from './FishFragmentArchiveModal';
 import { FishSelectorPanel } from './FishSelectorPanel';
 import { RuneDetailsPanel } from './RuneDetailsPanel';
@@ -41,10 +42,12 @@ export const StatsModal: React.FC<StatsModalProps> = ({
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showFragmentModal, setShowFragmentModal] = useState(false);
+  const [isDepthScoreOpen, setIsDepthScoreOpen] = useState(false);
   const [selectedBadgeId, setSelectedBadgeId] = useState<BadgeId | null>(null);
   const [inspectedFish, setInspectedFish] = useState<FishType | null>(null);
   const bestReefs = getBestReefScore(stats, reefProgress);
   const unlockedReefCount = reefProgress?.unlockedReef ?? 1;
+  const totalFragmentsCount = countTotalFragments(totalFragmentsByFish);
 
   // Keyboard shortcut: Spacebar (or Escape) closes the stats screen
   useEffect(() => {
@@ -91,69 +94,137 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           </h3>
         </div>
 
-        {/* Primary High Score Highlight */}
-        <div className="bg-gradient-to-r from-cyan-500/20 via-slate-900 to-slate-900 rounded-2xl p-4 border border-cyan-500/30 text-slate-100 shadow-xl mb-4 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">
-              Personal Best Depth Score
-            </div>
-            <div className="text-4xl font-black font-game mt-0.5 text-white drop-shadow-[0_2px_10px_rgba(6,182,212,0.3)]">
-              {stats.highScore}
-            </div>
-            {stats.dateSet && (
-              <div className="text-[10px] text-cyan-200/60 mt-1">
-                Achieved: {stats.dateSet}
+        {/* Primary High Score Highlight (Clickable Accordion unfolding Dives, Points, Strokes, Fish Power) */}
+        <div
+          id="stat-depth-score-card"
+          className={`rounded-2xl border transition-all duration-200 shadow-xl mb-4 overflow-hidden ${
+            isDepthScoreOpen
+              ? 'bg-slate-900/95 border-cyan-400/80 ring-1 ring-cyan-400/40'
+              : 'bg-gradient-to-r from-cyan-500/20 via-slate-900 to-slate-900 border-cyan-500/30 hover:border-cyan-400/60'
+          }`}
+        >
+          <button
+            type="button"
+            id="toggle-depth-score-details-btn"
+            onClick={() => {
+              setIsDepthScoreOpen((prev) => {
+                const next = !prev;
+                if (next) {
+                  setSelectedBadgeId(null);
+                  setInspectedFish(null);
+                }
+                return next;
+              });
+            }}
+            className="w-full p-4 flex items-center justify-between text-left cursor-pointer transition select-none group"
+            aria-expanded={isDepthScoreOpen}
+          >
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">
+                Personal Best Depth Score
               </div>
-            )}
-          </div>
-          <div className="w-14 h-14 rounded-2xl bg-cyan-400/10 border border-cyan-400/40 flex items-center justify-center shadow-inner">
-            <Trophy className="w-8 h-8 text-cyan-400" />
-          </div>
-        </div>
-
-        {/* Metrics Row: Dives, Points, and Swim Strokes on the same row */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div
-            id="stat-dives-completed"
-            className="bg-slate-900/90 p-2.5 rounded-2xl border border-white/10 flex flex-col justify-between shadow-lg"
-          >
-            <div className="flex items-center gap-1 text-slate-400 text-[9px] font-black uppercase tracking-tight">
-              <Flame className="w-3 h-3 text-orange-400 shrink-0" />
-              <span className="truncate" title="Dives">Dives</span>
+              <div className="text-4xl font-black font-game mt-0.5 text-white drop-shadow-[0_2px_10px_rgba(6,182,212,0.3)]">
+                {stats.highScore}
+              </div>
+              {stats.dateSet && (
+                <div className="text-[10px] text-cyan-200/60 mt-1">
+                  Achieved: {stats.dateSet}
+                </div>
+              )}
             </div>
-            <span className="text-lg sm:text-xl font-black font-game text-white mt-1.5 truncate">
-              {stats.gamesPlayed}
-            </span>
-          </div>
 
-          <div
-            id="stat-total-points"
-            className="bg-slate-900/90 p-2.5 rounded-2xl border border-white/10 flex flex-col justify-between shadow-lg"
-          >
-            <div className="flex items-center gap-1 text-slate-400 text-[9px] font-black uppercase tracking-tight">
-              <Award className="w-3 h-3 text-cyan-400 shrink-0" />
-              <span className="truncate" title="Points">Points</span>
+            <div className="flex items-center gap-2">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-400/10 border border-cyan-400/40 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                <Trophy className="w-8 h-8 text-cyan-400" />
+              </div>
+              <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-cyan-400 group-hover:bg-white/10 transition">
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    isDepthScoreOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </div>
             </div>
-            <span className="text-lg sm:text-xl font-black font-game text-white mt-1.5 truncate">
-              {stats.totalScore}
-            </span>
-          </div>
+          </button>
 
-          <div
-            id="stat-total-strokes"
-            className="bg-slate-900/90 p-2.5 rounded-2xl border border-white/10 flex flex-col justify-between shadow-lg"
-          >
-            <div className="flex items-center gap-1 text-slate-400 text-[9px] font-black uppercase tracking-tight">
-              <Zap className="w-3 h-3 text-teal-300 shrink-0" />
-              <span className="truncate" title="Strokes">Strokes</span>
-            </div>
-            <span
-              className="text-lg sm:text-xl font-black font-game text-white mt-1.5 truncate"
-              title={stats.totalFlaps.toLocaleString()}
+          {/* Unfolded Details: The Dives, Points, Strokes, and Cumulative Fragments Found (Title: Fish Power) */}
+          {isDepthScoreOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="px-4 pb-4 pt-1 border-t border-cyan-500/20"
             >
-              {stats.totalFlaps.toLocaleString()}
-            </span>
-          </div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {/* Dives */}
+                <div
+                  id="stat-dives-completed"
+                  className="bg-slate-950/80 p-2.5 rounded-xl border border-white/10 flex flex-col justify-between shadow-inner"
+                >
+                  <div className="flex items-center gap-1 text-slate-400 text-[9px] font-black uppercase tracking-tight">
+                    <Flame className="w-3 h-3 text-orange-400 shrink-0" />
+                    <span className="truncate" title="Dives">Dives</span>
+                  </div>
+                  <span className="text-lg sm:text-xl font-black font-game text-white mt-1 truncate">
+                    {stats.gamesPlayed}
+                  </span>
+                </div>
+
+                {/* Points */}
+                <div
+                  id="stat-total-points"
+                  className="bg-slate-950/80 p-2.5 rounded-xl border border-white/10 flex flex-col justify-between shadow-inner"
+                >
+                  <div className="flex items-center gap-1 text-slate-400 text-[9px] font-black uppercase tracking-tight">
+                    <Award className="w-3 h-3 text-cyan-400 shrink-0" />
+                    <span className="truncate" title="Points">Points</span>
+                  </div>
+                  <span className="text-lg sm:text-xl font-black font-game text-white mt-1 truncate">
+                    {stats.totalScore}
+                  </span>
+                </div>
+
+                {/* Strokes */}
+                <div
+                  id="stat-total-strokes"
+                  className="bg-slate-950/80 p-2.5 rounded-xl border border-white/10 flex flex-col justify-between shadow-inner"
+                >
+                  <div className="flex items-center gap-1 text-slate-400 text-[9px] font-black uppercase tracking-tight">
+                    <Zap className="w-3 h-3 text-teal-300 shrink-0" />
+                    <span className="truncate" title="Strokes">Strokes</span>
+                  </div>
+                  <span
+                    className="text-lg sm:text-xl font-black font-game text-white mt-1 truncate"
+                    title={stats.totalFlaps.toLocaleString()}
+                  >
+                    {stats.totalFlaps.toLocaleString()}
+                  </span>
+                </div>
+
+                {/* Cumulative Fragments Found (Titled "Fish Power") */}
+                <div
+                  id="stat-fish-power"
+                  className="bg-slate-950/80 p-2.5 rounded-xl border border-amber-500/25 flex flex-col justify-between shadow-inner"
+                >
+                  <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-tight">
+                    <div className="flex items-center gap-1 text-amber-300 truncate" title="Fish Power">
+                      <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+                      <span className="truncate">Fish Power</span>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline justify-between mt-1.5">
+                    <span className="text-lg sm:text-xl font-black font-game text-amber-300 truncate">
+                      {totalFragmentsCount}
+                    </span>
+                    <span className="text-[8.5px] text-amber-200/60 font-medium truncate ml-1">
+                      Fragments
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Reef Levels Button (Opens Level Selection) with 50-column dynamic background */}
@@ -187,7 +258,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               <Compass className="w-4.5 h-4.5" />
             </div>
             <span className="text-base sm:text-lg font-bold text-white tracking-wide truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-              Reef Levels: <span className="font-black text-cyan-300 font-game">{unlockedReefCount}/50</span> unlocked.
+              Reef Levels: <span className="font-black text-cyan-300 font-game">{unlockedReefCount}/50</span>
             </span>
           </div>
           <div className="relative z-10 w-7 h-7 rounded-lg bg-slate-950/60 border border-white/15 flex items-center justify-center shrink-0 ml-2 group-hover:border-cyan-400/50 transition-colors shadow-sm">
@@ -220,6 +291,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                       const next = prev === b.id ? null : b.id;
                       if (next !== null) {
                         setInspectedFish(null);
+                        setIsDepthScoreOpen(false);
                       }
                       return next;
                     });
@@ -297,6 +369,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           onSelectFish={(fish) => {
             onSelectFish?.(fish);
             setSelectedBadgeId(null);
+            setIsDepthScoreOpen(false);
           }}
           totalFragmentsByFish={totalFragmentsByFish}
           selectedSkin={selectedSkin}
@@ -312,6 +385,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
             setInspectedFish(fish);
             if (fish !== null) {
               setSelectedBadgeId(null);
+              setIsDepthScoreOpen(false);
             }
           }}
         />

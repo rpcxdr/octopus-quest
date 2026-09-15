@@ -2,7 +2,6 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ArrowLeft, Compass } from 'lucide-react';
 import { AllReefFragments, FishType } from '../types';
-import { countTotalFragments } from '../utils/fragments';
 import { ReefFragmentRecordList } from './ReefFragmentRecordList';
 
 interface FishFragmentArchiveModalProps {
@@ -17,19 +16,11 @@ interface FishFragmentArchiveModalProps {
 export const FishFragmentArchiveModal: React.FC<FishFragmentArchiveModalProps> = ({
   isOpen,
   onClose,
-  totalFragmentsByFish = {},
   allReefFragments = {},
   unlockedReef = 1,
   onSelectReefAndClose,
 }) => {
   if (!isOpen) return null;
-
-  const totalCollected = countTotalFragments(totalFragmentsByFish);
-
-  // Find all reefs that have retained fragments
-  const reefsWithFragments = Object.entries(allReefFragments)
-    .filter(([_, counts]) => countTotalFragments(counts as Record<string, number>) > 0)
-    .sort((a, b) => Number(a[0]) - Number(b[0]));
 
   return (
     <AnimatePresence>
@@ -64,33 +55,15 @@ export const FishFragmentArchiveModal: React.FC<FishFragmentArchiveModalProps> =
           </div>
 
           {/* Scrollable Body */}
-          <div className="overflow-y-auto space-y-3.5 pr-1 py-3 custom-scrollbar">
+          <div className="overflow-y-auto space-y-3.5 pr-1 py-3 custom-scrollbar flex-1">
             {/* Reef Retention Summary Section: Always shown with all 50 levels */}
             <div className="bg-slate-900/70 p-2.5 rounded-xl border border-white/10 shadow-inner">
-              <div className="max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+              <div className="max-h-[58vh] overflow-y-auto pr-1 custom-scrollbar">
                 <ReefFragmentRecordList
                   allReefFragments={allReefFragments}
                   unlockedReef={unlockedReef}
                   onSelectReef={onSelectReefAndClose}
                 />
-              </div>
-            </div>
-
-            {/* Summary Stat Banner (placed under the level listing panel) */}
-            <div className="bg-gradient-to-r from-amber-500/20 via-slate-900 to-slate-900 rounded-2xl p-3.5 border border-amber-500/30 flex items-center justify-between">
-              <div>
-                <div className="text-[9.5px] font-black uppercase tracking-[0.2em] text-amber-400">
-                  Cumulative Fragments Found
-                </div>
-                <div className="text-3xl font-black font-game mt-0.5 text-white drop-shadow-[0_2px_8px_rgba(245,158,11,0.3)]">
-                  {totalCollected}
-                </div>
-                <div className="text-[9.5px] text-slate-400 mt-0.5">
-                  Across {reefsWithFragments.length} explored reefs
-                </div>
-              </div>
-              <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-2xl">
-                ✨
               </div>
             </div>
           </div>
