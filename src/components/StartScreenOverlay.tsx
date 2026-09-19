@@ -362,7 +362,7 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
               </span>
             </button>
 
-            {/* Medium Mode Button (Default) */}
+            {/* Medium Mode Button */}
             <button
               id="difficulty-btn-medium"
               type="button"
@@ -375,17 +375,16 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
                   ? 'bg-gradient-to-b from-cyan-500 to-teal-600 text-white shadow-md shadow-cyan-950 border border-cyan-300/40 font-black ring-1 ring-cyan-400/50'
                   : 'text-slate-300 hover:text-white bg-slate-900/70 hover:bg-slate-800/80 border border-white/5'
               }`}
-              title="Medium mode (Default): Standard column gap, speed scales 1% to 50%"
+              title="Medium mode: Standard column gap, speed scales 1% to 50%"
             >
               <div className="flex items-center gap-1">
                 <span>Medium</span>
               </div>
               <span
-                className={`text-[8.5px] leading-tight ${
-                  difficulty === 'medium' ? 'text-cyan-100 font-semibold' : 'text-slate-400'
-                }`}
+                className="text-[8.5px] leading-tight invisible select-none"
+                aria-hidden="true"
               >
-                Default
+                &nbsp;
               </span>
             </button>
 

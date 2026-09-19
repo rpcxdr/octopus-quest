@@ -6,6 +6,9 @@ import {
   getColumnThemePalette,
   ColumnThemeType,
   ColumnThemePalette,
+  CandyColumnType,
+  getCandyTypeForColumn,
+  getCandyTypeForReef,
 } from './columnThemes';
 
 export function createInitialClouds(): Cloud[] {
@@ -38,15 +41,15 @@ export function drawBackground(
   const waterHeight = height - groundHeight;
   const tSec = time / 1000;
 
-  // 1. Oceanic Water Column Gradient
-  const oceanGrad = ctx.createLinearGradient(0, 0, 0, waterHeight);
+  // 1. Oceanic Water Column Gradient (fills entire canvas as atmospheric bedrock)
+  const oceanGrad = ctx.createLinearGradient(0, 0, 0, height);
   oceanGrad.addColorStop(0, aesthetic.waterGradient[0]);
   oceanGrad.addColorStop(0.18, aesthetic.waterGradient[1]);
   oceanGrad.addColorStop(0.5, aesthetic.waterGradient[2]);
   oceanGrad.addColorStop(0.82, aesthetic.waterGradient[3]);
   oceanGrad.addColorStop(1, aesthetic.waterGradient[4]);
   ctx.fillStyle = oceanGrad;
-  ctx.fillRect(0, 0, width, waterHeight);
+  ctx.fillRect(0, 0, width, height);
 
   // 2. Animated God Rays / Light Shafts (underwater sunbeams)
   ctx.save();
@@ -85,26 +88,59 @@ export function drawBackground(
   }
   ctx.restore();
 
-  // 3. Shimmering Water Surface Line (top 16px)
+  // 3. Shimmering Water Surface Line & Ocean Waves (extended flush to top edge of phone frame)
   ctx.save();
-  const surfaceGrad = ctx.createLinearGradient(0, 0, 0, 16);
+  // Multi-tier surface refraction glow that hugs the top border
+  const surfaceGrad = ctx.createLinearGradient(0, 0, 0, 24);
   surfaceGrad.addColorStop(0, aesthetic.surface.topColor);
-  surfaceGrad.addColorStop(0.5, aesthetic.surface.midColor);
+  surfaceGrad.addColorStop(0.35, aesthetic.surface.midColor);
   surfaceGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = surfaceGrad;
-  ctx.fillRect(0, 0, width, 16);
+  ctx.fillRect(0, 0, width, 24);
 
-  // Surface ripples
+  // Top surface flush highlight (ensures wave surface reaches absolute top y = 0)
+  ctx.fillStyle = aesthetic.surface.topColor;
+  ctx.fillRect(0, 0, width, 2.5);
+
+  // Primary undulating ocean surface wave crests
   ctx.strokeStyle = aesthetic.surface.rippleStroke;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2.2;
   ctx.beginPath();
-  for (let sx = 0; sx <= width; sx += 8) {
+  for (let sx = 0; sx <= width + 8; sx += 6) {
     const sy =
-      4 + Math.sin(sx * 0.08 + tSec * 3) * 2.5 + Math.cos(sx * 0.03 - tSec * 2) * 1.5;
+      4 +
+      Math.sin(sx * 0.065 + tSec * 2.8) * 3.0 +
+      Math.cos(sx * 0.028 - tSec * 1.8) * 1.6;
     if (sx === 0) ctx.moveTo(sx, sy);
     else ctx.lineTo(sx, sy);
   }
   ctx.stroke();
+
+  // Secondary surface wave interference ripple
+  ctx.strokeStyle = aesthetic.surface.topColor;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for (let sx = 0; sx <= width + 8; sx += 8) {
+    const sy =
+      8 +
+      Math.sin(sx * 0.09 - tSec * 2.2 + 1.2) * 2.0 +
+      Math.sin(sx * 0.04 + tSec * 1.4) * 1.2;
+    if (sx === 0) ctx.moveTo(sx, sy);
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+
+  // Shimmering micro-glints along the wave crests
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 6; i++) {
+    const glintX = ((tSec * 22 + i * (width / 5.5)) % (width + 40)) - 20;
+    const glintY = 4.0 + Math.sin(glintX * 0.065 + tSec * 2.8) * 2.8;
+    const glintAlpha = 0.4 + Math.sin(tSec * 5 + i * 2) * 0.35;
+    ctx.globalAlpha = Math.max(0, Math.min(1, glintAlpha));
+    ctx.beginPath();
+    ctx.arc(glintX, glintY, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 
   // 4. Distant Background Silhouettes (slow parallax)
@@ -460,7 +496,9 @@ export function drawPipes(
     const topH = pipe.topHeight;
     const gap = pipe.gap || config.pipeGap;
     const botY = topH + gap;
-    const botH = pipe.bottomHeight;
+    const groundY = config.virtualHeight - config.groundHeight;
+    // Ensure the bottom column anchors directly into the seabed floor with no floating gap
+    const botH = Math.max(pipe.bottomHeight, groundY - botY + 4);
     const colNum = pipe.columnNumber;
 
     switch (theme) {
@@ -472,7 +510,7 @@ export function drawPipes(
         drawBlockColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
         break;
       case 'candy':
-        drawCandyColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
+        drawCandyColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette, reefLevel);
         break;
       case 'tangled_kelp':
         drawTangledKelpColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
@@ -1604,8 +1642,59 @@ function drawBlockCap(
 }
 
 // ==========================================
-// 3. THEME: CANDY COLUMNS
+// 3. THEME: CANDY COLUMNS (3 DISTINCT CANDY ARCHETYPES)
 // ==========================================
+// (1) Type 0: Chunks of Candy (stacked irregular cleaved candy blocks, beveled facets, sugar dust seams)
+// (2) Type 1: Rock Candy Crystals (clusters of prismatic quartz-like sugar crystals, jagged crystal points, facet reflections)
+// (3) Type 2: Candy Cane (iconic diagonal spiral peppermint stripes on a translucent sugar-glass cane)
+// All utilize translucent bodies and clear negative spaces (alpha ~0.30 - 0.60) so ocean water, caustics, and god rays show through like kelp columns.
+
+function colorWithAlpha(color: string, alpha: number): string {
+  if (!color) return `rgba(255, 255, 255, ${alpha})`;
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  if (color.startsWith('rgba')) {
+    return color.replace(/[\d\.]+\)$/, `${alpha})`);
+  }
+  if (color.startsWith('rgb')) {
+    return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+  }
+  return color;
+}
+
+function getColorSaturation(hexOrRgb: string): number {
+  if (!hexOrRgb) return 0;
+  let r = 0, g = 0, b = 0;
+  if (hexOrRgb.startsWith('#')) {
+    let hex = hexOrRgb.slice(1);
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    r = parseInt(hex.substring(0, 2), 16) || 0;
+    g = parseInt(hex.substring(2, 4), 16) || 0;
+    b = parseInt(hex.substring(4, 6), 16) || 0;
+  } else {
+    const match = hexOrRgb.match(/\d+/g);
+    if (match && match.length >= 3) {
+      r = parseInt(match[0], 10) || 0;
+      g = parseInt(match[1], 10) || 0;
+      b = parseInt(match[2], 10) || 0;
+    }
+  }
+  const max = Math.max(r, g, b) / 255;
+  const min = Math.min(r, g, b) / 255;
+  if (max === 0) return 0;
+  return (max - min) / max;
+}
+
 function drawCandyColumn(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -1616,15 +1705,32 @@ function drawCandyColumn(
   capHeight: number,
   tSec: number,
   colNum: number | undefined,
-  palette: ColumnThemePalette
+  palette: ColumnThemePalette,
+  reefLevel: number = 1
 ) {
+  const effectiveCol = colNum !== undefined ? colNum : Math.floor(Math.abs(x) / 120) + 1;
+  const candyType = getCandyTypeForColumn(reefLevel, effectiveCol);
+
+  // Type 1: Rock Candy Swizzle Stick
+  // Continuous authentic swizzle-stick architecture:
+  // Narrow near the base of the stick, widening along the stick, then rounding off at the top
+  if (candyType === 1) {
+    if (topH > 0) {
+      drawRockCandySingleColumn(ctx, x, w, 0, topH, true, colNum, palette);
+    }
+    if (botH > 0) {
+      drawRockCandySingleColumn(ctx, x, w, botY, botH, false, colNum, palette);
+    }
+    return;
+  }
+
   if (topH > 0) {
-    drawCandyPillarBody(ctx, x, 0, w, topH - capHeight, palette);
-    drawCandyCap(ctx, x - 4, topH - capHeight, w + 8, capHeight, true, undefined, palette);
+    drawCandyPillarBody(ctx, x, 0, w, topH - capHeight, true, tSec, colNum, palette, candyType);
+    drawCandyCap(ctx, x - 4, topH - capHeight, w + 8, capHeight, true, tSec, undefined, palette, candyType);
   }
   if (botH > 0) {
-    drawCandyCap(ctx, x - 4, botY, w + 8, capHeight, false, colNum, palette);
-    drawCandyPillarBody(ctx, x, botY + capHeight, w, botH - capHeight, palette);
+    drawCandyCap(ctx, x - 4, botY, w + 8, capHeight, false, tSec, colNum, palette, candyType);
+    drawCandyPillarBody(ctx, x, botY + capHeight, w, botH - capHeight, false, tSec, colNum, palette, candyType);
   }
 }
 
@@ -1634,65 +1740,25 @@ function drawCandyPillarBody(
   y: number,
   w: number,
   h: number,
-  palette: ColumnThemePalette
+  isTop: boolean,
+  tSec: number,
+  colNum: number | undefined,
+  palette: ColumnThemePalette,
+  candyType: CandyColumnType
 ) {
   if (h <= 0) return;
-  ctx.save();
-
-  // Cylindrical candy base gradient
-  const baseGrad = ctx.createLinearGradient(x, 0, x + w, 0);
-  baseGrad.addColorStop(0, palette.bodyGradient[0]);
-  baseGrad.addColorStop(0.3, palette.bodyGradient[1]);
-  baseGrad.addColorStop(0.7, palette.bodyGradient[2]);
-  baseGrad.addColorStop(1, palette.bodyGradient[3]);
-  ctx.fillStyle = baseGrad;
-  ctx.fillRect(x, y, w, h);
-
-  // Clip to pillar body for diagonal candy cane spiral stripes
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
-
-  const stripeSpacing = 28;
-  const startOffset = -w * 2;
-  const endOffset = h + w * 2;
-
-  for (let sy = startOffset; sy < endOffset; sy += stripeSpacing) {
-    // Primary candy spiral stripe (sugar white / vibrant accent)
-    ctx.fillStyle = palette.accentPrimary;
-    ctx.beginPath();
-    ctx.moveTo(x, sy);
-    ctx.lineTo(x + w, sy + w * 0.85);
-    ctx.lineTo(x + w, sy + w * 0.85 + 11);
-    ctx.lineTo(x, sy + 11);
-    ctx.closePath();
-    ctx.fill();
-
-    // Secondary delicate pinstripe
-    ctx.fillStyle = palette.accentSecondary;
-    ctx.beginPath();
-    ctx.moveTo(x, sy + 15);
-    ctx.lineTo(x + w, sy + w * 0.85 + 15);
-    ctx.lineTo(x + w, sy + w * 0.85 + 17.5);
-    ctx.lineTo(x, sy + 17.5);
-    ctx.closePath();
-    ctx.fill();
+  switch (candyType) {
+    case 0:
+      drawCandyChunksPillarBody(ctx, x, y, w, h, isTop, tSec, colNum, palette);
+      break;
+    case 1:
+      drawRockCandyCrystalsPillarBody(ctx, x, y, w, h, isTop, tSec, colNum, palette);
+      break;
+    case 2:
+    default:
+      drawCandyCanePillarBody(ctx, x, y, w, h, isTop, tSec, colNum, palette);
+      break;
   }
-  ctx.restore();
-
-  // High-gloss vertical candy shine streak
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
-  ctx.fillRect(x + 6, y, 4, h);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-  ctx.fillRect(x + 12, y, 2, h);
-
-  // Dark candy outline
-  ctx.strokeStyle = palette.borderColor;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(x, y, w, h);
-
-  ctx.restore();
 }
 
 function drawCandyCap(
@@ -1702,11 +1768,820 @@ function drawCandyCap(
   w: number,
   h: number,
   isTop: boolean,
+  tSec: number,
+  colNum: number | undefined,
+  palette: ColumnThemePalette,
+  candyType: CandyColumnType
+) {
+  switch (candyType) {
+    case 0:
+      drawCandyChunksCap(ctx, x, y, w, h, isTop, tSec, colNum, palette);
+      break;
+    case 1:
+      drawRockCandyCrystalsCap(ctx, x, y, w, h, isTop, tSec, colNum, palette);
+      break;
+    case 2:
+    default:
+      drawCandyCaneCap(ctx, x, y, w, h, isTop, tSec, colNum, palette);
+      break;
+  }
+}
+
+// -------------------------------------------------------------
+// TYPE 0: CHUNKS OF CANDY
+// Stacked irregular cleaved candy blocks, beveled facets, sugar dust seams
+// -------------------------------------------------------------
+function drawCandyChunksPillarBody(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  _isTop: boolean,
+  tSec: number,
   colNum: number | undefined,
   palette: ColumnThemePalette
 ) {
   ctx.save();
-  // Bulbous gumdrop / ribbon candy cap
+  const seed = (colNum !== undefined ? colNum * 149 : Math.floor(x * 0.37)) % 1000;
+
+  // Base translucent water-permeable backdrop (ocean shines through)
+  ctx.fillStyle = colorWithAlpha(palette.bodyGradient[1], 0.35);
+  ctx.fillRect(x, y, w, h);
+
+  // Stack of discrete irregular candy chunks
+  const chunkHeights = [26, 32, 24, 30, 28, 34];
+  let curY = y;
+  let chunkIdx = 0;
+
+  while (curY < y + h) {
+    const rawH = chunkHeights[(chunkIdx + seed) % chunkHeights.length];
+    const chunkH = Math.min(rawH, y + h - curY);
+    if (chunkH <= 4) break;
+
+    const chunkSeed = (seed + chunkIdx * 73) % 1000;
+    // Slight offset and width jitter for hand-cleaved broken candy look
+    const xOffset = ((chunkSeed % 7) - 3) * 0.7; // -2.1 to +2.1 px
+    const cx = x + xOffset;
+    const cw = w - Math.abs(xOffset);
+    const chamferL = 3 + (chunkSeed % 4);
+    const chamferR = 3 + ((chunkSeed * 3) % 4);
+
+    // 1. Draw cleaved chunk polygon with beveled corners
+    ctx.beginPath();
+    ctx.moveTo(cx + chamferL, curY);
+    ctx.lineTo(cx + cw - chamferR, curY);
+    ctx.lineTo(cx + cw, curY + chamferR);
+    ctx.lineTo(cx + cw, curY + chunkH - 2);
+    ctx.lineTo(cx + cw - chamferR, curY + chunkH);
+    ctx.lineTo(cx + chamferL, curY + chunkH);
+    ctx.lineTo(cx, curY + chunkH - 2);
+    ctx.lineTo(cx, curY + chamferL);
+    ctx.closePath();
+
+    // Chunk candy body gradient (translucent gelatinous or hard-boiled candy)
+    const chunkGrad = ctx.createLinearGradient(cx, curY, cx + cw, curY + chunkH);
+    chunkGrad.addColorStop(0, colorWithAlpha(palette.bodyGradient[0], 0.65));
+    chunkGrad.addColorStop(0.35, colorWithAlpha(palette.bodyGradient[1], 0.48)); // translucent core
+    chunkGrad.addColorStop(0.75, colorWithAlpha(palette.bodyGradient[2], 0.55));
+    chunkGrad.addColorStop(1, colorWithAlpha(palette.bodyGradient[3], 0.70));
+    ctx.fillStyle = chunkGrad;
+    ctx.fill();
+
+    // 2. Internal diagonal candy fracture / cleavage planes
+    ctx.save();
+    ctx.clip();
+
+    // Secondary color internal chunk swirl/facet
+    ctx.fillStyle = colorWithAlpha(palette.accentSecondary, 0.22);
+    ctx.beginPath();
+    const splitX = cx + cw * (0.35 + ((chunkSeed % 5) * 0.08));
+    ctx.moveTo(splitX, curY);
+    ctx.lineTo(cx + cw, curY + chunkH * 0.6);
+    ctx.lineTo(cx + cw, curY + chunkH);
+    ctx.lineTo(splitX - 6, curY + chunkH);
+    ctx.closePath();
+    ctx.fill();
+
+    // Razor fracture lines within the chunk
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx + 4, curY + chunkH * 0.3);
+    ctx.lineTo(cx + cw * 0.45, curY + chunkH * 0.55);
+    ctx.lineTo(cx + cw * 0.8, curY + chunkH * 0.4);
+    ctx.stroke();
+
+    // Trapped micro sugar bubbles or fruit bits inside the chunk
+    for (let b = 0; b < 2; b++) {
+      const bx = cx + 8 + ((chunkSeed * 17 + b * 29) % Math.max(1, cw - 16));
+      const by = curY + 4 + ((chunkSeed * 31 + b * 43) % Math.max(1, chunkH - 8));
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.beginPath();
+      ctx.arc(bx, by, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // 3. Crisp chamfer highlights and shadows on chunk boundaries
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.48)'; // top-left light facet
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx, curY + chamferL);
+    ctx.lineTo(cx + chamferL, curY);
+    ctx.lineTo(cx + cw - chamferR, curY);
+    ctx.stroke();
+
+    ctx.strokeStyle = colorWithAlpha(palette.borderColor, 0.70); // bottom-right shadow facet
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx + cw - chamferR, curY);
+    ctx.lineTo(cx + cw, curY + chamferR);
+    ctx.lineTo(cx + cw, curY + chunkH);
+    ctx.lineTo(cx, curY + chunkH);
+    ctx.lineTo(cx, curY + chamferL);
+    ctx.stroke();
+
+    // 4. Frosted sugar powder seam between chunks
+    ctx.fillStyle = colorWithAlpha(palette.capRim || '#ffffff', 0.55);
+    const dustCount = Math.floor(cw / 6);
+    for (let d = 0; d < dustCount; d++) {
+      const dx = cx + 3 + d * 6 + ((chunkSeed + d) % 3);
+      const dy = curY + chunkH - 1 + ((d % 2 === 0 ? 0 : 1));
+      ctx.fillRect(dx, dy, 1.5, 1.2);
+    }
+
+    // 5. High-gloss wet candy reflection streak
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.32)';
+    ctx.fillRect(cx + 6, curY + 2, 3, chunkH - 4);
+
+    curY += chunkH;
+    chunkIdx++;
+  }
+
+  // Outer subtle bounding structure
+  ctx.strokeStyle = colorWithAlpha(palette.borderColor, 0.55);
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.restore();
+}
+
+function drawCandyChunksCap(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  isTop: boolean,
+  tSec: number,
+  colNum: number | undefined,
+  palette: ColumnThemePalette
+) {
+  ctx.save();
+
+  // Chunky cleaved crown block of candy with beveled corner cuts
+  const cut = 7;
+  ctx.beginPath();
+  if (isTop) {
+    ctx.moveTo(x + cut, y);
+    ctx.lineTo(x + w - cut, y);
+    ctx.lineTo(x + w, y + cut);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x, y + h);
+    ctx.lineTo(x, y + cut);
+  } else {
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w, y + h - cut);
+    ctx.lineTo(x + w - cut, y + h);
+    ctx.lineTo(x + cut, y + h);
+    ctx.lineTo(x, y + h - cut);
+  }
+  ctx.closePath();
+
+  // Translucent chunk gradient
+  const capGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+  capGrad.addColorStop(0, colorWithAlpha(palette.capGradient[0], 0.78));
+  capGrad.addColorStop(0.35, colorWithAlpha(palette.capGradient[1], 0.62));
+  capGrad.addColorStop(0.75, colorWithAlpha(palette.capGradient[2], 0.68));
+  capGrad.addColorStop(1, colorWithAlpha(palette.capGradient[3], 0.82));
+  ctx.fillStyle = capGrad;
+  ctx.fill();
+
+  ctx.strokeStyle = colorWithAlpha(palette.borderColor, 0.85);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Angular facet split line across the chunk cap
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.lineWidth = 1.4;
+  const edgeY = isTop ? y + h - 6 : y + 6;
+  ctx.beginPath();
+  ctx.moveTo(x + 4, edgeY);
+  ctx.lineTo(x + w * 0.45, isTop ? y + 5 : y + h - 5);
+  ctx.lineTo(x + w - 4, edgeY);
+  ctx.stroke();
+
+  // Sugar dust sprinkles along the crown rim
+  ctx.fillStyle = palette.capRim || '#ffffff';
+  for (let i = 0; i < 6; i++) {
+    const sx = x + 7 + i * ((w - 14) / 5);
+    const sy = isTop ? y + 4 + (i % 2) * 2 : y + h - 6 - (i % 2) * 2;
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+
+  // Chunky Confection Tile Medallion Badge
+  if (colNum !== undefined && !isTop) {
+    const badgeX = x + w / 2;
+    const badgeY = y + h / 2 + 1;
+    const size = 18;
+
+    // Beveled diamond/square chunky candy badge
+    ctx.fillStyle = colorWithAlpha(palette.badgeBg, 0.90);
+    ctx.beginPath();
+    ctx.roundRect(badgeX - size / 2, badgeY - size / 2, size, size, 4);
+    ctx.fill();
+
+    ctx.strokeStyle = colorWithAlpha(palette.badgeBorder, 0.95);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = palette.badgeText;
+    ctx.font = 'bold 9px "Press Start 2P", monospace, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(colNum), badgeX, badgeY + 0.5);
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// TYPE 1: ROCK CANDY CRYSTALS (CARTOON VECTOR-ART ON WOODEN STICKS)
+// 2D cartoon style vector-art illustration of realistic rock candy on wooden sticks:
+// Contours: Narrow near the base of the stick, widening along the stick, then rounding off at the top.
+// Translucent, jewel-toned crystal formations with sharp facets and shimmering glass-like textures.
+// A central wooden skewer dowel encrusted with chunky polygonal sugar crystals,
+// crisp facet division lines, sharp specular glass highlights, and static glints.
+// (Completely static - no animation!)
+// -------------------------------------------------------------
+/**
+ * Fast, deterministic 32-bit PRNG (Mulberry32) for pseudo-random crystal placement
+ * without any frame-to-frame animation or repeating visual patterns.
+ */
+function createPrng(seed: number) {
+  let s = (seed + 1) | 0;
+  return function next(): number {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), s | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Fast, lightweight prismatic rock candy crystal polygon.
+ * Rendered in a single combined pass with gradient volume, light facet sheen,
+ * and unified boundary + interior ridge strokes.
+ */
+function drawRockCandyCrystal(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  tiltAngle: number,
+  palette: ColumnThemePalette,
+  seed: number,
+  hasStaticGlint: boolean = false
+) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tiltAngle);
+
+  const rnd1 = ((seed * 17) % 100) / 100;
+  const rnd2 = ((seed * 31) % 100) / 100;
+
+  const topX = ((seed % 5) - 2) * (rx * 0.08);
+  const topY = -ry;
+  const rightX = rx * (0.85 + rnd1 * 0.12);
+  const rightY = -ry * 0.15;
+  const botRightX = rx * 0.55;
+  const botRightY = ry * 0.88;
+  const botLeftX = -rx * 0.55;
+  const botLeftY = ry * 0.88;
+  const leftX = -rx * (0.85 + rnd2 * 0.12);
+  const leftY = -ry * 0.15;
+  const ridgeX = ((seed % 7) - 3) * (rx * 0.06);
+  const ridgeY = ry * 0.12;
+
+  // 1. Single faceted linear gradient fill for full crystal body
+  const grad = ctx.createLinearGradient(leftX, topY, rightX, botRightY);
+  grad.addColorStop(0, colorWithAlpha(palette.bodyGradient[0], 0.72));
+  grad.addColorStop(0.45, colorWithAlpha(palette.bodyGradient[1], 0.58));
+  grad.addColorStop(1, colorWithAlpha(palette.bodyGradient[3], 0.75));
+
+  ctx.beginPath();
+  ctx.moveTo(topX, topY);
+  ctx.lineTo(rightX, rightY);
+  ctx.lineTo(botRightX, botRightY);
+  ctx.lineTo(botLeftX, botLeftY);
+  ctx.lineTo(leftX, leftY);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // 2. Light facet highlight overlay (quick 3-point triangle)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.beginPath();
+  ctx.moveTo(topX, topY);
+  ctx.lineTo(leftX, leftY);
+  ctx.lineTo(ridgeX, ridgeY);
+  ctx.closePath();
+  ctx.fill();
+
+  // 3. Crisp interior facet ridges & outer boundary in a single stroke call
+  ctx.strokeStyle = colorWithAlpha(palette.borderColor, 0.70);
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  // Outer boundary
+  ctx.moveTo(topX, topY);
+  ctx.lineTo(rightX, rightY);
+  ctx.lineTo(botRightX, botRightY);
+  ctx.lineTo(botLeftX, botLeftY);
+  ctx.lineTo(leftX, leftY);
+  ctx.closePath();
+  // Interior ridges
+  ctx.moveTo(topX, topY);
+  ctx.lineTo(ridgeX, ridgeY);
+  ctx.lineTo(botRightX, botRightY);
+  ctx.moveTo(ridgeX, ridgeY);
+  ctx.lineTo(leftX, leftY);
+  ctx.stroke();
+
+  // 4. Shimmering top-edge specular highlight
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(leftX, leftY);
+  ctx.lineTo(topX, topY);
+  ctx.lineTo(rightX, rightY);
+  ctx.stroke();
+
+  // 5. Minimal static glint on top vertex
+  if (hasStaticGlint) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.beginPath();
+    ctx.arc(topX, topY, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Calculates the exact organic half-width of the rock candy cluster at distance d from the apex tip:
+ * - d = 0..domeLength: "rounding off at the top" (elliptical dome capping the stick)
+ * - d = domeLength..candyLength: "widening" from narrow base up to full cluster width
+ * - d > candyLength: bare wooden stick
+ */
+function getRockCandyHalfWidth(d: number, totalH: number, w: number): number {
+  const maxHW = Math.min(w * 0.46, 26);
+  const baseHW = 6.5; // ~13px total width at narrow base hugging the 7px stick
+  const candyLength = totalH > 180 ? Math.min(240, totalH - 35) : Math.max(45, totalH - 18);
+  const domeLength = Math.min(28, candyLength * 0.24);
+
+  if (d < 0) return 0;
+  if (d > candyLength) return 3.5; // bare wooden stick (radius 3.5px)
+
+  if (d <= domeLength) {
+    // Rounding off at the top: elliptical dome contour
+    const ratio = d / domeLength; // 0 at tip, 1.0 at dome base
+    const domeFactor = Math.sqrt(Math.max(0, 1 - Math.pow(1 - ratio, 2)));
+    return maxHW * domeFactor;
+  }
+
+  // Widening along the stick from baseHW to maxHW
+  const t = (candyLength - d) / (candyLength - domeLength); // 0 at base, 1 at dome
+  const eased = Math.pow(Math.max(0, Math.min(1, t)), 0.82);
+  return baseHW + (maxHW - baseHW) * eased;
+}
+
+/**
+ * Renders an authentic 2D cartoon vector-art rock candy swizzle stick:
+ * - Central wooden skewer dowel with spherical handle bead at the base
+ * - Classic rock candy contour: Narrow near the base of the stick, widening, then rounding off at the top
+ * - Translucent jewel-toned crystal formations with sharp facets and shimmering glass-like textures
+ * - Seamless contiguous geometry with zero cutoffs or animation
+ */
+function drawRockCandySingleColumn(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  w: number,
+  y: number,
+  h: number,
+  isTop: boolean,
+  colNum: number | undefined,
+  palette: ColumnThemePalette
+) {
+  if (h <= 0) return;
+  ctx.save();
+
+  const seed = (colNum !== undefined ? colNum * 223 + 47 : Math.floor(x * 0.39) + 23) % 1000;
+  const cx = x + w / 2;
+  const y_base = isTop ? y : y + h;
+  const y_apex = isTop ? y + h : y;
+  const y_from_d = (d: number) => isTop ? (y + h) - d : y + d;
+
+  const candyLength = h > 180 ? Math.min(240, h - 35) : Math.max(45, h - 18);
+  const domeLength = Math.min(28, candyLength * 0.24);
+
+  // 1. Translucent Sugar Wash Silhouette Backdrop
+  // (Follows the exact tapered contour: narrow near base -> widening -> rounded dome at top)
+  ctx.beginPath();
+  const stepWash = 12;
+  // Left contour from base of candy to apex
+  for (let d = candyLength; d >= 0; d -= stepWash) {
+    const hw = getRockCandyHalfWidth(d, h, w);
+    const py = y_from_d(d);
+    if (d === candyLength) ctx.moveTo(cx - hw, py);
+    else ctx.lineTo(cx - hw, py);
+  }
+  // Apex tip
+  ctx.lineTo(cx, y_apex);
+  // Right contour from apex back down to base of candy
+  for (let d = 0; d <= candyLength; d += stepWash) {
+    const hw = getRockCandyHalfWidth(d, h, w);
+    const py = y_from_d(d);
+    ctx.lineTo(cx + hw, py);
+  }
+  ctx.closePath();
+
+  // Translucent jewel sugar gradient wash
+  const washGrad = ctx.createLinearGradient(cx - 22, 0, cx + 22, 0);
+  washGrad.addColorStop(0, colorWithAlpha(palette.bodyGradient[0], 0.36));
+  washGrad.addColorStop(0.35, colorWithAlpha(palette.bodyGradient[1], 0.28));
+  washGrad.addColorStop(0.70, colorWithAlpha(palette.bodyGradient[2], 0.30));
+  washGrad.addColorStop(1, colorWithAlpha(palette.bodyGradient[3], 0.38));
+  ctx.fillStyle = washGrad;
+  ctx.fill();
+
+  ctx.strokeStyle = colorWithAlpha(palette.borderColor, 0.45);
+  ctx.lineWidth = 1.0;
+  ctx.stroke();
+
+  // 2. Central Wooden Rock Candy Stick Dowel
+  const stickW = 7;
+  const stickX = cx - stickW / 2;
+  const stickEmbedY = y_from_d(12); // Embedded deep into the rounded top crystal head
+  const stickTopY = Math.min(y_base, stickEmbedY);
+  const stickH = Math.abs(y_base - stickEmbedY);
+
+  const stickGrad = ctx.createLinearGradient(stickX, 0, stickX + stickW, 0);
+  stickGrad.addColorStop(0, 'rgba(124, 74, 30, 0.85)');
+  stickGrad.addColorStop(0.25, 'rgba(212, 163, 115, 0.95)');
+  stickGrad.addColorStop(0.60, 'rgba(252, 246, 189, 0.98)');
+  stickGrad.addColorStop(1, 'rgba(167, 107, 53, 0.88)');
+  ctx.fillStyle = stickGrad;
+  ctx.fillRect(stickX, stickTopY, stickW, stickH);
+
+  // Wood grain linear striations
+  ctx.strokeStyle = 'rgba(110, 68, 25, 0.40)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(stickX + 2.2, stickTopY);
+  ctx.lineTo(stickX + 2.2, stickTopY + stickH);
+  ctx.moveTo(stickX + 4.8, stickTopY);
+  ctx.lineTo(stickX + 4.8, stickTopY + stickH);
+  ctx.stroke();
+
+  // Spherical wooden handle bead/knob at the base of the stick
+  ctx.fillStyle = stickGrad;
+  ctx.strokeStyle = 'rgba(110, 68, 25, 0.85)';
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.arc(cx, y_base, 5.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Specular wood shine on bead
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.beginPath();
+  ctx.arc(cx - 1.2, y_base - (isTop ? -1.2 : 1.2), 1.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 3. Crisp, Fast Crystal Formations (Rich Interlocking Cluster)
+  const prng = createPrng(seed);
+
+  let currentD = candyLength - 4;
+  let toggle = 0;
+  while (currentD >= domeLength + 4) {
+    const hw = getRockCandyHalfWidth(currentD, h, w);
+    const cy = y_from_d(currentD + (prng() - 0.5) * 3);
+    const scale = Math.max(0.60, hw / 22);
+
+    // Natural alternating left/right scatter across the stick
+    const side = toggle % 2 === 0 ? -1 : 1;
+    toggle++;
+    const xRatio = side * (0.20 + prng() * 0.55);
+    const offsetX = xRatio * hw;
+
+    const rx = (17 + prng() * 6) * scale;
+    const ry = (14 + prng() * 5) * scale;
+    const tilt = (prng() - 0.5) * 1.0;
+    const crystalSeed = Math.floor(prng() * 10000);
+    const hasGlint = prng() < 0.28;
+
+    drawRockCandyCrystal(
+      ctx,
+      cx + offsetX,
+      cy,
+      rx,
+      ry,
+      tilt,
+      palette,
+      crystalSeed,
+      hasGlint
+    );
+
+    // On wider sections of the swizzle stick, add a staggered companion crystal
+    if (hw >= 17 && prng() < 0.65) {
+      const compSide = -side;
+      const compOffsetX = compSide * (0.25 + prng() * 0.50) * hw;
+      const compCy = y_from_d(currentD + (prng() - 0.5) * 4);
+      const compRx = (14 + prng() * 5) * scale;
+      const compRy = (12 + prng() * 4) * scale;
+      drawRockCandyCrystal(
+        ctx,
+        cx + compOffsetX,
+        compCy,
+        compRx,
+        compRy,
+        (prng() - 0.5) * 0.9,
+        palette,
+        crystalSeed + 7,
+        false
+      );
+    }
+
+    // Organic stride (14px to 19px) gives a rich, dense rock candy texture
+    const step = 14 + prng() * 5;
+    currentD -= step;
+  }
+
+  // 4. Rounded-Off Top Dome (4 Crisp Crown Gemstones)
+  const maxHW = Math.min(w * 0.46, 26);
+
+  // 4a. Left dome shoulder gemstone
+  const crownLeftRx = 16 + prng() * 4;
+  const crownLeftRy = 14 + prng() * 3;
+  drawRockCandyCrystal(
+    ctx,
+    cx - maxHW * (0.35 + prng() * 0.1),
+    y_from_d(domeLength * 0.55),
+    crownLeftRx,
+    crownLeftRy,
+    isTop ? -0.28 : 0.28,
+    palette,
+    Math.floor(prng() * 10000),
+    false
+  );
+
+  // 4b. Right dome shoulder gemstone
+  const crownRightRx = 16 + prng() * 4;
+  const crownRightRy = 14 + prng() * 3;
+  drawRockCandyCrystal(
+    ctx,
+    cx + maxHW * (0.35 + prng() * 0.1),
+    y_from_d(domeLength * 0.55),
+    crownRightRx,
+    crownRightRy,
+    isTop ? 0.28 : -0.28,
+    palette,
+    Math.floor(prng() * 10000) + 1,
+    false
+  );
+
+  // 4c. Central joint gemstone
+  const jointRx = 15 + prng() * 3;
+  const jointRy = 13 + prng() * 3;
+  drawRockCandyCrystal(
+    ctx,
+    cx + (prng() - 0.5) * 4,
+    y_from_d(domeLength * 0.78),
+    jointRx,
+    jointRy,
+    (prng() - 0.5) * 0.3,
+    palette,
+    Math.floor(prng() * 10000) + 2,
+    false
+  );
+
+  // 4d. Central Apex Crowning Gemstone pointing toward swim gap
+  const apexRx = 18 + prng() * 4;
+  const apexRy = 16 + prng() * 3;
+  drawRockCandyCrystal(
+    ctx,
+    cx,
+    y_from_d(6),
+    apexRx,
+    apexRy,
+    0,
+    palette,
+    Math.floor(prng() * 10000) + 3,
+    true
+  );
+
+  // Shimmering white specular glass highlight curving along the rounded dome crest
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  const crestStep = 8;
+  for (let d = domeLength; d >= 2; d -= crestStep) {
+    const hw = getRockCandyHalfWidth(d, h, w);
+    const py = y_from_d(d);
+    if (d === domeLength) ctx.moveTo(cx - hw * 0.85, py);
+    else ctx.lineTo(cx - hw * 0.85, py);
+  }
+  ctx.lineTo(cx, y_apex - (isTop ? -1.5 : 1.5));
+  for (let d = 2; d <= domeLength; d += crestStep) {
+    const hw = getRockCandyHalfWidth(d, h, w);
+    const py = y_from_d(d);
+    ctx.lineTo(cx + hw * 0.85, py);
+  }
+  ctx.stroke();
+
+  // 5. Diagonal glass reflection streaks (max 2)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.lineWidth = 1.4;
+  const streakPositions = [domeLength + 30, domeLength + 85];
+  for (const streakD of streakPositions) {
+    if (streakD > candyLength - 12) continue;
+    const hw = getRockCandyHalfWidth(streakD, h, w);
+    const py = y_from_d(streakD);
+    ctx.beginPath();
+    ctx.moveTo(cx - hw * 0.70, py - 3);
+    ctx.lineTo(cx + hw * 0.70, py + 12);
+    ctx.stroke();
+  }
+
+  // 6. Faceted Crystal Geode Medallion Badge (static, bottom column only)
+  if (colNum !== undefined && !isTop) {
+    const badgeD = Math.min(candyLength * 0.50, h * 0.50);
+    const badgeX = cx;
+    const badgeY = y_from_d(badgeD);
+    const r = 9.5;
+
+    ctx.fillStyle = colorWithAlpha(palette.badgeBg, 0.92);
+    ctx.beginPath();
+    ctx.arc(badgeX, badgeY, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Multi-faceted crystal rim
+    ctx.strokeStyle = colorWithAlpha(palette.badgeBorder, 0.95);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = palette.badgeText;
+    ctx.font = 'bold 9px "Press Start 2P", monospace, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(colNum), badgeX, badgeY + 0.5);
+  }
+
+  ctx.restore();
+}
+
+// Fallback compatibility wrappers for drawCandyPillarBody / drawCandyCap
+function drawRockCandyCrystalsPillarBody(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  isTop: boolean,
+  _tSec: number,
+  colNum: number | undefined,
+  palette: ColumnThemePalette
+) {
+  drawRockCandySingleColumn(ctx, x, w, y, h, isTop, colNum, palette);
+}
+
+function drawRockCandyCrystalsCap(
+  _ctx: CanvasRenderingContext2D,
+  _x: number,
+  _y: number,
+  _w: number,
+  _h: number,
+  _isTop: boolean,
+  _tSec: number,
+  _colNum: number | undefined,
+  _palette: ColumnThemePalette
+) {
+  // Handled smoothly as unified swizzle stick in drawRockCandySingleColumn
+}
+
+// -------------------------------------------------------------
+// TYPE 2: CANDY CANE (LIKE IT IS)
+// Iconic diagonal spiral peppermint stripes on a solid opaque peppermint sugar cane
+// -------------------------------------------------------------
+function drawCandyCanePillarBody(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  _isTop: boolean,
+  _tSec: number,
+  _colNum: number | undefined,
+  palette: ColumnThemePalette
+) {
+  ctx.save();
+
+  // 1. Solid Opaque Candy Cane Base Cylinder (pure white porcelain sugar with 3D cylindrical depth)
+  const caneBaseGrad = ctx.createLinearGradient(x, 0, x + w, 0);
+  caneBaseGrad.addColorStop(0, '#f1f5f9');
+  caneBaseGrad.addColorStop(0.15, '#ffffff');
+  caneBaseGrad.addColorStop(0.60, '#ffffff');
+  caneBaseGrad.addColorStop(0.85, '#f8fafc');
+  caneBaseGrad.addColorStop(1, '#e2e8f0');
+  ctx.fillStyle = caneBaseGrad;
+  ctx.fillRect(x, y, w, h);
+
+  // 2. Clip to pillar body for diagonal spiraling candy cane ribbons
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+
+  const stripeSpacing = 52;
+  const startOffset = -w * 2;
+  const endOffset = h + w * 2;
+
+  // Determine the more saturated color between accentSecondary and accentPrimary
+  const sat1 = getColorSaturation(palette.accentPrimary);
+  const sat2 = getColorSaturation(palette.accentSecondary);
+  const saturatedColor = sat2 >= sat1 ? palette.accentSecondary : palette.accentPrimary;
+
+  for (let sy = startOffset; sy < endOffset; sy += stripeSpacing) {
+    // Primary Vibrant Peppermint Ribbon - REALLY WIDE bold saturated stripe (28px wide!)
+    ctx.fillStyle = saturatedColor;
+    ctx.beginPath();
+    ctx.moveTo(x, sy);
+    ctx.lineTo(x + w, sy + w * 0.85);
+    ctx.lineTo(x + w, sy + w * 0.85 + 28);
+    ctx.lineTo(x, sy + 28);
+    ctx.closePath();
+    ctx.fill();
+
+    // Secondary Saturated Candy Companion Stripe (5px wide)
+    ctx.beginPath();
+    ctx.moveTo(x, sy + 37);
+    ctx.lineTo(x + w, sy + w * 0.85 + 37);
+    ctx.lineTo(x + w, sy + w * 0.85 + 42);
+    ctx.lineTo(x, sy + 42);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 3. Soft Cylindrical Shading on Right Edge
+  const shadowGrad = ctx.createLinearGradient(x + w * 0.70, 0, x + w, 0);
+  shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0.16)');
+  ctx.fillStyle = shadowGrad;
+  ctx.fillRect(x, y, w, h);
+
+  // 4. Glossy Specular Reflection Streak
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.70)';
+  ctx.fillRect(x + 5, y, 3.5, h);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.fillRect(x + 11, y, 2, h);
+
+  // 5. Solid Crisp Outline
+  ctx.strokeStyle = palette.borderColor;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.restore();
+}
+
+function drawCandyCaneCap(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  isTop: boolean,
+  _tSec: number,
+  colNum: number | undefined,
+  palette: ColumnThemePalette
+) {
+  ctx.save();
+
+  // Solid bulbous ribbon candy cane cap backing
   ctx.fillStyle = palette.borderColor;
   ctx.beginPath();
   ctx.roundRect(x - 1, y - 1, w + 2, h + 2, 8);
@@ -1722,7 +2597,7 @@ function drawCandyCap(
   ctx.roundRect(x, y, w, h, 7);
   ctx.fill();
 
-  // Wavy sugar stripes across the cap
+  // Wavy spiral sugar stripes across the cap (solid)
   ctx.strokeStyle = palette.accentPrimary;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
@@ -1746,7 +2621,7 @@ function drawCandyCap(
     ctx.fill();
   }
 
-  // Peppermint swirl disc badge
+  // Peppermint swirl disc badge (solid)
   if (colNum !== undefined && !isTop) {
     const badgeX = x + w / 2;
     const badgeY = y + h / 2 + 1;
@@ -1757,7 +2632,7 @@ function drawCandyCap(
     ctx.arc(badgeX, badgeY, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // 4 candy spiral rays
+    // 4 candy spiral rays (solid)
     ctx.strokeStyle = palette.badgeBorder;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -1770,6 +2645,7 @@ function drawCandyCap(
     ctx.textBaseline = 'middle';
     ctx.fillText(String(colNum), badgeX, badgeY + 0.5);
   }
+
   ctx.restore();
 }
 
@@ -2684,7 +3560,8 @@ export function drawGround(
   sandGrad.addColorStop(0.35, aesthetic.seabed.sandGradient[1]); // mid sand dune
   sandGrad.addColorStop(1, aesthetic.seabed.sandGradient[2]);   // abyssal trench sand
   ctx.fillStyle = sandGrad;
-  ctx.fillRect(0, y + 4, width, groundHeight - 4);
+  const bedFillHeight = Math.max(groundHeight - 4, height - y);
+  ctx.fillRect(0, y + 4, width, bedFillHeight + 20);
 
   // 3. Midground 3D Sand Wave Ripples & Dunes (Speed: 1.20x)
   ctx.save();
@@ -2706,6 +3583,14 @@ export function drawGround(
     ctx.moveTo(rx + 22, y + 34);
     ctx.quadraticCurveTo(rx + 44, y + 39, rx + 66, y + 34);
     ctx.stroke();
+
+    // Tertiary deep sand ripple tier (extends into deeper seabed)
+    if (bedFillHeight > 80) {
+      ctx.beginPath();
+      ctx.moveTo(rx, y + 54);
+      ctx.quadraticCurveTo(rx + 22, y + 59, rx + 44, y + 54);
+      ctx.stroke();
+    }
   }
 
   // Soft shaded ripple troughs directly under crests for 3D sand dune depth
@@ -2727,7 +3612,8 @@ export function drawGround(
   ctx.lineCap = 'round';
 
   for (let gx = -gOffset; gx < width + grassStep; gx += grassStep) {
-    const grassSway = Math.sin(tSec * 3 + gx * 0.15) * 7;
+    // Gentle underwater surge: reduced oscillation frequency for tranquil, natural seagrass sway
+    const grassSway = Math.sin(tSec * 0.95 + gx * 0.08) * 6 + Math.cos(tSec * 0.45 + gx * 0.05) * 1.8;
 
     // Deep back blade
     ctx.strokeStyle = aesthetic.seabed.grassColors[0];
@@ -3152,24 +4038,88 @@ export function drawBird(
 
   // 2. Render Fish Power Overlays & Indicators
   if (abilityState) {
-    if (fishType === 'pufferfish' && abilityState.shieldState === 'active') {
-      drawBubbleShield(ctx, bird.x, bird.y, abilityState.shieldTimeRemaining, time);
-    } else if (fishType === 'seahorse') {
-      drawSeahorseDirectionCue(ctx, bird, abilityState.seahorseNextDirection, time);
+    if (fishType === 'pufferfish') {
+      if (abilityState.shieldState === 'active') {
+        drawBubbleShield(
+          ctx,
+          bird.x,
+          bird.y,
+          abilityState.shieldTimeRemaining,
+          abilityState.shieldMaxDuration,
+          time
+        );
+      } else if (abilityState.shieldState === 'ready') {
+        drawPufferReadyShieldCircle(ctx, bird.x, bird.y, time);
+      }
     } else if (fishType === 'clownfish') {
       drawClownFishEffortIndicator(ctx, bird, abilityState, time);
+    } else if (fishType === 'seahorse') {
+      drawSeahorseDirectionCue(ctx, bird, abilityState.seahorseNextDirection, time);
     }
   }
 }
 
 /**
- * 3D Iridescent Protective Bubble Shield for Puffer Fish
+ * Thin, unsaturated bubble-style ready shield indicator around the Puffer Fish.
+ * Renders as a delicate, clear translucent water bubble with zero saturation.
+ */
+function drawPufferReadyShieldCircle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number
+) {
+  ctx.save();
+  const tSec = time / 1000;
+  // Subtle organic bubble float breathing
+  const pulse = Math.sin(tSec * 2.5) * 0.35;
+  const radius = 20.5 + pulse;
+
+  // Translucent bubble interior sheen (zero saturation)
+  const bubbleFill = ctx.createRadialGradient(x - 5, y - 5, 2, x, y, radius);
+  bubbleFill.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+  bubbleFill.addColorStop(0.7, 'rgba(255, 255, 255, 0.02)');
+  bubbleFill.addColorStop(1, 'rgba(255, 255, 255, 0.06)');
+  ctx.fillStyle = bubbleFill;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Very thin, delicate bubble boundary ring
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Primary specular curved highlight on upper-left
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.lineWidth = 1.1;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(x, y, radius - 1.5, -Math.PI * 0.85, -Math.PI * 0.45);
+  ctx.stroke();
+
+  // Secondary subtle lower-right reflection arc
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 0.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(x, y, radius - 1.5, Math.PI * 0.22, Math.PI * 0.38);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
+ * 3D Iridescent Protective Bubble Shield for Puffer Fish with circular countdown progress bar.
  */
 function drawBubbleShield(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   timeRemaining: number,
+  maxDuration: number,
   time: number
 ) {
   ctx.save();
@@ -3215,24 +4165,37 @@ function drawBubbleShield(
   ctx.arc(x, y, radius - 3, Math.PI * 0.2, Math.PI * 0.45);
   ctx.stroke();
 
-  // Floating countdown timer tag above shield
-  ctx.font = 'bold 9px monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const tagY = y - radius - 8;
-  const tagText = `🛡️ ${Math.max(0, timeRemaining).toFixed(1)}s`;
+  // Circular progress bar overlay that shortens clockwise from top (12 o'clock) as time runs out
+  const maxDur = Math.max(0.1, maxDuration || 0.5);
+  const progress = Math.max(0, Math.min(1, timeRemaining / maxDur));
+  const progressRadius = radius + 3;
+  const startAngle = -Math.PI / 2;
+  const endAngle = startAngle + Math.PI * 2 * progress;
 
-  ctx.fillStyle = isExpiringSoon ? 'rgba(220, 38, 38, 0.9)' : 'rgba(15, 23, 42, 0.85)';
+  // Faint background track
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+  ctx.lineWidth = 2.0;
   ctx.beginPath();
-  ctx.roundRect(x - 24, tagY - 6, 48, 13, 6);
-  ctx.fill();
-
-  ctx.strokeStyle = isExpiringSoon ? '#fca5a5' : '#38bdf8';
-  ctx.lineWidth = 0.8;
+  ctx.arc(x, y, progressRadius, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(tagText, x, tagY);
+  // Active circular countdown progress bar
+  if (progress > 0.005) {
+    // Soft outer glow on progress arc
+    ctx.strokeStyle = isExpiringSoon ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.45)';
+    ctx.lineWidth = 4.0;
+    ctx.beginPath();
+    ctx.arc(x, y, progressRadius, startAngle, endAngle);
+    ctx.stroke();
+
+    // Sharp progress arc
+    ctx.strokeStyle = isExpiringSoon ? '#f87171' : '#38bdf8';
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(x, y, progressRadius, startAngle, endAngle);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -3364,7 +4327,7 @@ function drawHydroDashWhoosh(
 }
 
 /**
- * Directional Arrow Indicator floating near Seahorse
+ * Directional Up/Down HUD indicator floating near Seahorse
  */
 function drawSeahorseDirectionCue(
   ctx: CanvasRenderingContext2D,
@@ -3381,12 +4344,17 @@ function drawSeahorseDirectionCue(
   const cueY = bird.y - 12 + bob;
 
   const isUp = nextDirection === 'up';
-  ctx.fillStyle = isUp ? 'rgba(34, 197, 94, 0.9)' : 'rgba(249, 115, 22, 0.9)';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 1;
+
+  ctx.fillStyle = isUp ? 'rgba(34, 197, 94, 0.92)' : 'rgba(249, 115, 22, 0.92)';
   ctx.beginPath();
-  ctx.roundRect(cueX - 8, cueY - 7, 16, 14, 6);
+  ctx.roundRect(cueX - 9, cueY - 7.5, 18, 15, 5);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
@@ -3395,12 +4363,12 @@ function drawSeahorseDirectionCue(
   ctx.beginPath();
   if (isUp) {
     ctx.moveTo(cueX, cueY - 4);
-    ctx.lineTo(cueX - 4, cueY + 3);
-    ctx.lineTo(cueX + 4, cueY + 3);
+    ctx.lineTo(cueX - 4.5, cueY + 3.5);
+    ctx.lineTo(cueX + 4.5, cueY + 3.5);
   } else {
     ctx.moveTo(cueX, cueY + 4);
-    ctx.lineTo(cueX - 4, cueY - 3);
-    ctx.lineTo(cueX + 4, cueY - 3);
+    ctx.lineTo(cueX - 4.5, cueY - 3.5);
+    ctx.lineTo(cueX + 4.5, cueY - 3.5);
   }
   ctx.closePath();
   ctx.fill();

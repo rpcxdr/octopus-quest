@@ -88,7 +88,6 @@ import {
   generateReefFloatingFragments,
   drawFloatingFragment,
   createFragmentCollectParticles,
-  countTotalFragments,
 } from '../utils/fragments';
 import {
   createRecordJuiceState,
@@ -98,6 +97,7 @@ import {
   drawFishLevelJuice,
   FragmentRecordJuiceState,
 } from '../utils/fragmentRecordJuice';
+import { drawReefIntroTitle } from '../utils/reefIntroRenderer';
 import { getBaseFragments } from '../utils/badges';
 import { StartScreenOverlay } from './StartScreenOverlay';
 import { ScoreBoardModal } from './ScoreBoardModal';
@@ -105,7 +105,7 @@ import { StatsModal } from './StatsModal';
 import { ReefClearedModal } from './ReefClearedModal';
 import { FishBadgeIcon } from './FishBadgeIcon';
 import { drawFishBadgeCanvas } from '../utils/fishBadgeRenderer';
-import { Pause, Play, Volume2, VolumeX, Waves, Trophy, ArrowRight, Home } from 'lucide-react';
+import { Pause, Play, Volume2, VolumeX, Home, RotateCcw, Waves, Trophy } from 'lucide-react';
 
 interface Ripple {
   id: number;
@@ -147,7 +147,6 @@ export const FlappyGame: React.FC = () => {
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [score, setScore] = useState<number>(0);
   const [reefColumn, setReefColumn] = useState<number>(0);
-  const [isContinuingRun, setIsContinuingRun] = useState<boolean>(false);
   const [stats, setStats] = useState<GameStats>(loadGameStats());
   const [reefProgress, setReefProgress] = useState<ReefProgress>(loadReefProgress());
   const [isNewHighScore, setIsNewHighScore] = useState<boolean>(false);
@@ -172,6 +171,7 @@ export const FlappyGame: React.FC = () => {
   const [clearedReefLevel, setClearedReefLevel] = useState<number>(() => loadReefProgress().currentReef || 1);
   const [lastClearTime, setLastClearTime] = useState<number | undefined>(undefined);
   const [currentFastStreak, setCurrentFastStreak] = useState<number>(() => loadReefProgress().currentFastReefsInRow || 0);
+  const [virtualHeight, setVirtualHeight] = useState<number>(DEFAULT_PHYSICS.virtualHeight);
 
   const initialFish = loadSelectedFish();
   const initialDifficulty = loadGameDifficulty();
@@ -236,6 +236,7 @@ export const FlappyGame: React.FC = () => {
     }>;
     recordJuiceState: FragmentRecordJuiceState;
     reefClearedTime: number;
+    virtualHeight: number;
   }>({
     gameState: 'IDLE',
     isPaused: false,
@@ -250,6 +251,7 @@ export const FlappyGame: React.FC = () => {
     flapsBankedToTotal: 0,
     hasIncrementedGamesPlayed: false,
     reefElapsedTime: 0,
+    virtualHeight: DEFAULT_PHYSICS.virtualHeight,
     bird: createInitialBird(DEFAULT_PHYSICS.virtualWidth, DEFAULT_PHYSICS.virtualHeight),
     pipes: [],
     particles: [],
@@ -338,16 +340,76 @@ export const FlappyGame: React.FC = () => {
     }
   }, [allReefFragments, selectedFish]);
 
+  // Responsive viewport scaling: dynamically adjust virtualHeight so background and ground fill the entire phone frame
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateDimensions = () => {
+      const rect = container.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const computedHeight = Math.max(
+          560,
+          Math.round(DEFAULT_PHYSICS.virtualWidth * (rect.height / rect.width))
+        );
+        if (Math.abs(computedHeight - stateRef.current.virtualHeight) >= 2) {
+          setVirtualHeight(computedHeight);
+          stateRef.current.virtualHeight = computedHeight;
+          const s = stateRef.current;
+          const config = getPhysicsForDifficulty(s.difficulty, s.currentReef, computedHeight);
+          if (s.gameState === 'IDLE') {
+            s.bird.y = (computedHeight - DEFAULT_PHYSICS.groundHeight) * 0.48;
+            s.reefColumns = generateReefColumns(s.currentReef, config, s.difficulty);
+            const frags = getTotalFragmentsByFish(allReefFragments);
+            const octLevel = getFishLevel(frags['octopus'] || 0);
+            const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats);
+            const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
+            s.floatingFragments = generateReefFloatingFragments(
+              computedHeight,
+              config.groundHeight,
+              Date.now(),
+              fragCount,
+              s.selectedFish
+            );
+          }
+        }
+      }
+    };
+
+    updateDimensions();
+
+    const ro = new ResizeObserver(() => {
+      updateDimensions();
+    });
+    ro.observe(container);
+
+    return () => {
+      ro.disconnect();
+    };
+  }, [allReefFragments, stats.totalScore, reefProgress]);
+
+  const getConfig = useCallback(
+    (diff?: GameDifficulty, reef?: number) => {
+      const s = stateRef.current;
+      return getPhysicsForDifficulty(
+        diff || s.difficulty,
+        reef !== undefined ? reef : s.currentReef,
+        s.virtualHeight || virtualHeight
+      );
+    },
+    [virtualHeight]
+  );
+
   // Handle difficulty selection: easy (+20% gap), medium (default), hard (+20% speed)
   const handleSelectDifficulty = useCallback((newDiff: GameDifficulty) => {
     setDifficulty(newDiff);
     saveGameDifficulty(newDiff);
     const s = stateRef.current;
     s.difficulty = newDiff;
-    const config = getPhysicsForDifficulty(newDiff, s.currentReef);
+    const config = getConfig(newDiff, s.currentReef);
     s.reefColumns = generateReefColumns(s.currentReef, config, newDiff);
     sound.playSwoosh();
-  }, []);
+  }, [getConfig]);
 
   // Handle choosing a fish character
   const handleSelectFish = useCallback((fish: FishType) => {
@@ -363,7 +425,7 @@ export const FlappyGame: React.FC = () => {
 
     // If game is in start/idle state, update floating fragments (Octopus level increases fragments)
     if (s.gameState === 'IDLE') {
-      const config = getPhysicsForDifficulty(s.difficulty, s.currentReef);
+      const config = getConfig(s.difficulty, s.currentReef);
       const octLevel = getFishLevel(frags['octopus'] || 0);
       const baseFrags = getBaseFragments(stats.totalScore, reefProgress);
       const fragCount = fish === 'octopus' ? baseFrags + octLevel : baseFrags;
@@ -375,7 +437,7 @@ export const FlappyGame: React.FC = () => {
         fish
       );
     }
-  }, [allReefFragments, stats.totalScore, reefProgress]);
+  }, [allReefFragments, stats.totalScore, reefProgress, getConfig]);
 
   // Sync Shell Rune unlock effect (unlocks first 5 reef levels) with reefProgress state
   useEffect(() => {
@@ -400,7 +462,7 @@ export const FlappyGame: React.FC = () => {
 
     const safeReef = updated.currentReef;
     s.currentReef = safeReef;
-    const config = getPhysicsForDifficulty(s.difficulty, safeReef);
+    const config = getConfig(s.difficulty, safeReef);
     s.reefColumns = generateReefColumns(safeReef, config, s.difficulty);
     s.columnsSpawned = 0;
     s.pipes = [];
@@ -439,14 +501,13 @@ export const FlappyGame: React.FC = () => {
     setScore(0);
     setReefColumn(0);
     setCurrentAttemptFragments(createEmptyFragmentCounts());
-    setIsContinuingRun(false);
     setIsNewHighScore(false);
     setIsPaused(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('IDLE');
   }, [allReefFragments, stats.totalScore]);
 
-  // Handle jumping to next reef while preserving survival run score
+  // Handle jumping to next reef while preserving survival run score and immediately starting swim
   const handleContinueRunToNextReef = useCallback(() => {
     const s = stateRef.current;
     const nextReef = Math.min(TOTAL_REEF_LEVELS, s.currentReef + 1);
@@ -460,7 +521,7 @@ export const FlappyGame: React.FC = () => {
     // Keep cumulative s.score and s.runTotalFlaps intact!
     const safeNext = updated.currentReef;
     s.currentReef = safeNext;
-    const config = getPhysicsForDifficulty(s.difficulty, safeNext);
+    const config = getConfig(s.difficulty, safeNext);
     s.reefColumns = generateReefColumns(safeNext, config, s.difficulty);
     s.columnsSpawned = 0;
     s.pipes = [];
@@ -487,25 +548,53 @@ export const FlappyGame: React.FC = () => {
     s.currentAttemptFragments = createEmptyFragmentCounts();
     s.pickupEffects = [];
     s.recordJuiceState = createRecordJuiceState();
-    s.gameState = 'IDLE';
+    s.gameState = 'PLAYING';
     s.isPaused = false;
     s.reefElapsedTime = 0;
 
+    // Trigger initial flap so the swimmer enters the new reef actively swimming (except Seahorse which starts going straight)
+    if (s.selectedFish !== 'seahorse') {
+      const flapRes = s.fishBehavior.onFlap(s.bird, config);
+      if (flapRes.velocity !== undefined) s.bird.velocity = flapRes.velocity;
+      if (flapRes.rotation !== undefined) s.bird.rotation = flapRes.rotation;
+      s.flapsCount += 1;
+      s.runTotalFlaps += 1;
+      sound.playFlap();
+      if (s.selectedFish === 'singray') {
+        s.particles.push(...createHydroDashWakeParticles(s.bird));
+      } else {
+        s.particles.push(...createFlapPuff(s.bird));
+      }
+    } else {
+      s.bird.velocity = 0;
+      s.bird.rotation = 0;
+      s.fishBehavior.reset();
+    }
+
     setReefColumn(0);
     setCurrentAttemptFragments(createEmptyFragmentCounts());
-    setIsContinuingRun(true);
     setIsPaused(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
-    setGameState('IDLE');
-  }, [allReefFragments]);
+    setGameState('PLAYING');
+  }, [allReefFragments, stats.totalScore]);
 
   // Handle jump/flap action
   const handleFlap = useCallback(() => {
     const s = stateRef.current;
     if (s.isPaused) return;
-    const config = getPhysicsForDifficulty(s.difficulty, s.currentReef);
+    const config = getConfig(s.difficulty, s.currentReef);
 
     if (s.gameState === 'IDLE') {
+      // Ensure columns match the exact active virtualHeight and groundHeight
+      const expectedPlayable = config.virtualHeight - config.groundHeight;
+      if (
+        !s.reefColumns ||
+        s.reefColumns.length === 0 ||
+        s.reefColumns[0].topHeight + s.reefColumns[0].gap + s.reefColumns[0].bottomHeight !== expectedPlayable
+      ) {
+        s.reefColumns = generateReefColumns(s.currentReef, config, s.difficulty);
+      }
+
       // If no floating fragments spawned yet, generate for this attempt
       if (s.floatingFragments === undefined) {
         const frags = getTotalFragmentsByFish(allReefFragments);
@@ -524,18 +613,25 @@ export const FlappyGame: React.FC = () => {
       s.gameState = 'PLAYING';
       setGameState('PLAYING');
       setNewlyUnlockedFish(null);
-      setIsContinuingRun(false);
       s.reefElapsedTime = 0;
-      const flapRes = s.fishBehavior.onFlap(s.bird, config);
-      if (flapRes.velocity !== undefined) s.bird.velocity = flapRes.velocity;
-      if (flapRes.rotation !== undefined) s.bird.rotation = flapRes.rotation;
-      s.flapsCount += 1;
-      s.runTotalFlaps += 1;
-      sound.playFlap();
-      if (s.selectedFish === 'singray') {
-        s.particles.push(...createHydroDashWakeParticles(s.bird));
+
+      if (s.selectedFish !== 'seahorse') {
+        const flapRes = s.fishBehavior.onFlap(s.bird, config);
+        if (flapRes.velocity !== undefined) s.bird.velocity = flapRes.velocity;
+        if (flapRes.rotation !== undefined) s.bird.rotation = flapRes.rotation;
+        s.flapsCount += 1;
+        s.runTotalFlaps += 1;
+        sound.playFlap();
+        if (s.selectedFish === 'singray') {
+          s.particles.push(...createHydroDashWakeParticles(s.bird));
+        } else {
+          s.particles.push(...createFlapPuff(s.bird));
+        }
       } else {
-        s.particles.push(...createFlapPuff(s.bird));
+        // Seahorse starts out going straight without an initial tap
+        s.bird.velocity = 0;
+        s.bird.rotation = 0;
+        s.fishBehavior.reset();
       }
       setAbilitySnapshot(s.fishBehavior.getAbilityState());
     } else if (s.gameState === 'PLAYING') {
@@ -572,7 +668,7 @@ export const FlappyGame: React.FC = () => {
       checkAndUpdateHighScore(s.score, s.reefsClearedInRun);
     }
 
-    const config = getPhysicsForDifficulty(s.difficulty, s.currentReef);
+    const config = getConfig(s.difficulty, s.currentReef);
     s.bird = createInitialBird(config.virtualWidth, config.virtualHeight);
     s.pipes = [];
     s.particles = [];
@@ -613,7 +709,6 @@ export const FlappyGame: React.FC = () => {
     setScore(0);
     setReefColumn(0);
     setCurrentAttemptFragments(createEmptyFragmentCounts());
-    setIsContinuingRun(false);
     setIsNewHighScore(false);
     setIsPaused(false);
     setNewlyUnlockedFish(null);
@@ -625,7 +720,7 @@ export const FlappyGame: React.FC = () => {
     setCurrentFastStreak(0);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('IDLE');
-  }, [allReefFragments]);
+  }, [allReefFragments, getConfig]);
 
   // Handle immediately replaying the current reef without returning to the home screen
   const handleReplayLevel = useCallback(() => {
@@ -644,7 +739,7 @@ export const FlappyGame: React.FC = () => {
       checkAndUpdateHighScore(s.score, s.reefsClearedInRun);
     }
 
-    const config = getPhysicsForDifficulty(s.difficulty, s.currentReef);
+    const config = getConfig(s.difficulty, s.currentReef);
     s.bird = createInitialBird(config.virtualWidth, config.virtualHeight);
     s.pipes = [];
     s.particles = [];
@@ -680,14 +775,32 @@ export const FlappyGame: React.FC = () => {
     s.pickupEffects = [];
     s.recordJuiceState = createRecordJuiceState();
 
-    s.gameState = 'IDLE';
+    s.gameState = 'PLAYING';
     s.isPaused = false;
     s.reefElapsedTime = 0;
+
+    // Trigger initial flap so the swimmer enters the replayed reef actively swimming (except Seahorse which starts going straight)
+    if (s.selectedFish !== 'seahorse') {
+      const flapRes = s.fishBehavior.onFlap(s.bird, config);
+      if (flapRes.velocity !== undefined) s.bird.velocity = flapRes.velocity;
+      if (flapRes.rotation !== undefined) s.bird.rotation = flapRes.rotation;
+      s.flapsCount += 1;
+      s.runTotalFlaps += 1;
+      sound.playFlap();
+      if (s.selectedFish === 'singray') {
+        s.particles.push(...createHydroDashWakeParticles(s.bird));
+      } else {
+        s.particles.push(...createFlapPuff(s.bird));
+      }
+    } else {
+      s.bird.velocity = 0;
+      s.bird.rotation = 0;
+      s.fishBehavior.reset();
+    }
 
     setScore(0);
     setReefColumn(0);
     setCurrentAttemptFragments(createEmptyFragmentCounts());
-    setIsContinuingRun(false);
     setIsNewHighScore(false);
     setIsPaused(false);
     setNewlyUnlockedFish(null);
@@ -698,7 +811,7 @@ export const FlappyGame: React.FC = () => {
     setLastClearTime(undefined);
     setCurrentFastStreak(0);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
-    setGameState('IDLE');
+    setGameState('PLAYING');
   }, [allReefFragments, stats.totalScore, reefProgress]);
 
   // Handle exiting to menu specifically from Reef Cleared modal:
@@ -758,6 +871,11 @@ export const FlappyGame: React.FC = () => {
       if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
         e.preventDefault();
         const s = stateRef.current;
+        if (s.isPaused) {
+          s.isPaused = false;
+          setIsPaused(false);
+          return;
+        }
         if (s.gameState === 'GAMEOVER') {
           handleReplayLevel();
         } else if (s.gameState === 'REEF_CLEARED') {
@@ -810,7 +928,7 @@ export const FlappyGame: React.FC = () => {
 
     const loop = (time: number) => {
       const s = stateRef.current;
-      const config = getPhysicsForDifficulty(s.difficulty, s.currentReef);
+      const config = getConfig(s.difficulty, s.currentReef);
       const rawDt = (time - s.lastTime) / 1000;
       s.lastTime = time;
 
@@ -883,11 +1001,16 @@ export const FlappyGame: React.FC = () => {
               ? lastPipe.x + config.pipeSpacing
               : config.virtualWidth + 60;
             const colTemplate = s.reefColumns[s.columnsSpawned];
+            const playableHeight = config.virtualHeight - config.groundHeight;
+            const bottomHeight = Math.max(
+              0,
+              playableHeight - colTemplate.topHeight - colTemplate.gap
+            );
             const newPipe: Pipe = {
               id: s.nextPipeId++,
               x: startX,
               topHeight: colTemplate.topHeight,
-              bottomHeight: colTemplate.bottomHeight,
+              bottomHeight,
               gap: colTemplate.gap,
               passed: false,
               width: colTemplate.width,
@@ -1243,6 +1366,15 @@ export const FlappyGame: React.FC = () => {
         // Giant fish level gained juice (rendered in front of background, but behind column obstacles)
         drawFishLevelJuice(ctx, s.recordJuiceState, time);
 
+        // Reef Number & Theme Description intro overlay (first 2 seconds of play, behind column obstacles)
+        drawReefIntroTitle(
+          ctx,
+          s.currentReef,
+          s.reefElapsedTime,
+          config,
+          s.gameState
+        );
+
         // Themed Pillars (with column numbers, rotating every 2 reefs)
         drawPipes(ctx, s.pipes, config, time, s.currentReef);
 
@@ -1352,7 +1484,7 @@ export const FlappyGame: React.FC = () => {
 
     // Reset game engine state to Reef 1
     const s = stateRef.current;
-    const config = getPhysicsForDifficulty(s.difficulty, 1);
+    const config = getConfig(s.difficulty, 1);
     s.currentReef = 1;
     s.reefColumns = generateReefColumns(1, config, s.difficulty);
     s.columnsSpawned = 0;
@@ -1391,7 +1523,6 @@ export const FlappyGame: React.FC = () => {
     setReefColumn(0);
     setAllReefFragments({});
     setCurrentAttemptFragments(createEmptyFragmentCounts());
-    setIsContinuingRun(false);
     setIsPaused(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('IDLE');
@@ -1402,7 +1533,7 @@ export const FlappyGame: React.FC = () => {
       id="flappy-game-wrapper"
       ref={containerRef}
       onPointerDown={handlePointerDown}
-      className="relative w-full h-full max-w-[440px] max-h-[820px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-900 bg-slate-950 select-none touch-none cursor-pointer ring-1 ring-white/15"
+      className="relative w-full h-full max-w-[440px] max-h-[820px] rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-900 bg-[#031d38] select-none touch-none cursor-pointer ring-1 ring-white/15"
       style={{ touchAction: 'none' }}
     >
       {/* High-DPI Canvas */}
@@ -1410,8 +1541,8 @@ export const FlappyGame: React.FC = () => {
         id="game-canvas"
         ref={canvasRef}
         width={DEFAULT_PHYSICS.virtualWidth}
-        height={DEFAULT_PHYSICS.virtualHeight}
-        className="w-full h-full block object-contain"
+        height={virtualHeight}
+        className="w-full h-full block"
       />
 
       {/* Touch Visual Ripples */}
@@ -1429,7 +1560,7 @@ export const FlappyGame: React.FC = () => {
       ))}
 
       {/* In-Game Top Floating Score & Reef Progress HUD */}
-      {(gameState === 'PLAYING' || (gameState === 'IDLE' && isContinuingRun)) && (
+      {gameState === 'PLAYING' && (
         <div className="absolute top-3 sm:top-4 inset-x-3 sm:inset-x-4 pt-1 px-1 flex flex-col gap-2 z-15 pointer-events-none">
           <div className="w-full flex items-center justify-between gap-2 shrink-0">
             {/* (1) Pause Button: same upper left position as stats button on home screen */}
@@ -1449,30 +1580,65 @@ export const FlappyGame: React.FC = () => {
               )}
             </button>
 
-            {/* (2) Centered Details Panel */}
+            {/* (2) Combined Graphical HUD Panel: Reef Number, Visual Column Minimap Progress Counter, and Best Counter */}
             <div
-              id="hud-reef-details-panel"
-              className="flex-1 max-w-[280px] sm:max-w-sm mx-auto bg-slate-950/80 backdrop-blur-xl border border-cyan-500/25 rounded-2xl px-3 py-1.5 shadow-2xl pointer-events-auto text-center flex flex-col items-center justify-center min-w-0"
+              id="hud-combined-panel"
+              className="flex-1 max-w-[340px] sm:max-w-md mx-auto bg-slate-950/80 backdrop-blur-xl border border-cyan-500/25 rounded-full px-2.5 sm:px-3 h-9 shadow-2xl pointer-events-auto flex items-center justify-between gap-1.5 sm:gap-2.5 min-w-0"
             >
+              {/* Reef Number (Graphical) */}
               <div
-                className="text-[10px] sm:text-[11px] font-bold text-cyan-200 tracking-wide truncate max-w-full"
+                className="flex items-center gap-1 shrink-0 cursor-default"
                 title={`Reef ${reefProgress.currentReef}: ${getReefZoneName(reefProgress.currentReef)} - ${getColumnThemeName(reefProgress.currentReef)}`}
               >
-                <span className="font-game font-black text-cyan-300">
-                  Reef {reefProgress.currentReef}:
-                </span>{' '}
-                <span>
-                  {getReefZoneName(reefProgress.currentReef)} - {getColumnThemeName(reefProgress.currentReef)}
+                <Waves className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="font-game font-black text-xs text-cyan-300 whitespace-nowrap">
+                  Reef {reefProgress.currentReef}
                 </span>
               </div>
-              <div className="text-[10px] sm:text-[11px] font-bold text-slate-200 mt-0.5 flex items-center justify-center gap-2">
-                <span>
-                  Columns <span className="text-cyan-300 font-game">{reefColumn}</span>
-                  <span className="text-slate-400 font-sans">/10</span>
+
+              {/* Vertical subtle divider */}
+              <div className="w-px h-3.5 bg-white/15 shrink-0" />
+
+              {/* Visual Column Minimap (Graphical Pearl Dots) */}
+              <div
+                className="flex items-center shrink min-w-0"
+                title={`Column ${reefColumn} of 10`}
+              >
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: 10 }).map((_, idx) => {
+                    const isCleared = idx < reefColumn;
+                    const isCurrent = idx === reefColumn;
+                    return (
+                      <div
+                        key={idx}
+                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 shrink-0 ${
+                          isCleared
+                            ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.85)] scale-105'
+                            : isCurrent
+                            ? 'bg-cyan-300 ring-1.5 ring-cyan-400/80 shadow-[0_0_8px_rgba(34,211,238,0.9)] animate-pulse'
+                            : 'bg-white/15 border border-white/10'
+                        }`}
+                        title={`Column ${idx + 1}`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Vertical subtle divider */}
+              <div className="w-px h-3.5 bg-white/15 shrink-0" />
+
+              {/* Best Counter (Graphical) */}
+              <div
+                className="flex items-center gap-1 shrink-0 cursor-default"
+                title={`Run: ${score} | High Score: ${Math.max(stats.highScore || 0, score)}`}
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400 fill-amber-400/30 shrink-0" />
+                <span className="font-game font-black text-xs text-amber-300 leading-none">
+                  {score}
                 </span>
-                <span>
-                  Best Run: <span className="text-amber-300 font-game">{score}</span>
-                  <span className="text-slate-400 font-sans">/{Math.max(stats.highScore || 0, score)}</span>
+                <span className="text-[9px] font-sans text-amber-400/60 leading-none">
+                  /{Math.max(stats.highScore || 0, score)}
                 </span>
               </div>
             </div>
@@ -1494,125 +1660,6 @@ export const FlappyGame: React.FC = () => {
               )}
             </button>
           </div>
-
-          {/* 10-Column Progress Bar / Pearl dots */}
-          <div className="flex items-center justify-center gap-1 px-4 py-1 bg-slate-950/60 backdrop-blur-md rounded-full border border-cyan-500/20 max-w-xs mx-auto shadow-md">
-            {Array.from({ length: 10 }).map((_, idx) => {
-              const isCleared = idx < reefColumn;
-              const isCurrent = idx === reefColumn;
-              return (
-                <div
-                  key={idx}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    isCleared
-                      ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] scale-110'
-                      : isCurrent
-                      ? 'bg-cyan-300 ring-2 ring-cyan-400/60 animate-pulse'
-                      : 'bg-white/15 border border-white/10'
-                  }`}
-                  title={`Column ${idx + 1}`}
-                />
-              );
-            })}
-          </div>
-
-          {/* Active Reef Fragments Collector Pill (shown once first fragment is collected) */}
-          {countTotalFragments(currentAttemptFragments) > 0 && (
-            <div className="flex items-center justify-center pointer-events-auto">
-              <div
-                id="hud-reef-fragments"
-                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-cyan-500/30 bg-slate-950/70 text-cyan-200 flex items-center gap-2 shadow-md backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
-                title="Fragments collected in this Reef attempt"
-              >
-                <div className="flex items-center gap-2 font-mono text-[10px]">
-                  {(Object.entries(currentAttemptFragments) as [FishType, number][])
-                    .filter(([_, count]) => count > 0)
-                    .map(([fish, count]) => (
-                      <span key={fish} className="text-amber-300 font-bold inline-flex items-center gap-1">
-                        <FishBadgeIcon fishType={fish} size={13} />
-                        <span>{count}</span>
-                      </span>
-                    ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Character Special Power Active Status Pill */}
-          {selectedFish !== 'octopus' && (
-            <div className="flex items-center justify-center pointer-events-auto">
-              {selectedFish === 'pufferfish' && (
-                <div
-                  id="hud-ability-pufferfish"
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all ${
-                    abilitySnapshot.shieldState === 'active'
-                      ? 'bg-cyan-500/30 text-cyan-200 border-cyan-400 ring-2 ring-cyan-400/40 animate-pulse'
-                      : abilitySnapshot.shieldState === 'ready'
-                      ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
-                      : 'bg-slate-900/70 text-slate-400 border-white/10 opacity-70'
-                  }`}
-                >
-                  <FishBadgeIcon fishType="pufferfish" size={14} />
-                  <span>Shield:</span>
-                  <span className="font-mono">
-                    {abilitySnapshot.shieldState === 'active'
-                      ? `${abilitySnapshot.shieldTimeRemaining.toFixed(1)}s`
-                      : abilitySnapshot.shieldState === 'ready'
-                      ? 'READY'
-                      : 'DEPLETED'}
-                  </span>
-                </div>
-              )}
-              {selectedFish === 'clownfish' && (
-                <div
-                  id="hud-ability-clownfish"
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-orange-500/40 bg-orange-500/20 text-orange-200 flex items-center gap-1.5 shadow-md backdrop-blur-md"
-                >
-                  <FishBadgeIcon fishType="clownfish" size={14} />
-                  <span>Ascent Multiplier:</span>
-                  <span className="text-orange-300 font-mono">
-                    {abilitySnapshot.clownfishUpwardTaps && abilitySnapshot.clownfishUpwardTaps > 0
-                      ? `${abilitySnapshot.clownfishUpwardTaps}x Tap (${Math.round((abilitySnapshot.clownfishGravityMultiplier ?? 1) * 100)}%)`
-                      : 'TAP UP'}
-                  </span>
-                </div>
-              )}
-              {selectedFish === 'singray' && (
-                <div
-                  id="hud-ability-singray"
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all ${
-                    abilitySnapshot.isDashing
-                      ? 'bg-sky-500/30 text-sky-200 border-sky-400 ring-2 ring-sky-400/40 animate-pulse'
-                      : 'bg-sky-950/40 text-sky-300 border-sky-500/30'
-                  }`}
-                >
-                  <FishBadgeIcon fishType="singray" size={14} />
-                  <span>Hydro Dash:</span>
-                  <span className="font-mono">
-                    {abilitySnapshot.isDashing ? '⚡ +10% SPD ACTIVE' : 'PRESS SPACE'}
-                  </span>
-                </div>
-              )}
-              {selectedFish === 'seahorse' && (
-                <div
-                  id="hud-ability-seahorse"
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-purple-500/40 bg-purple-500/20 text-purple-200 flex items-center gap-1.5 shadow-md backdrop-blur-md"
-                >
-                  <FishBadgeIcon fishType="seahorse" size={14} />
-                  <span>Wave Switch:</span>
-                  <span
-                    className={`font-black font-mono px-1.5 py-0.5 rounded ${
-                      abilitySnapshot.seahorseNextDirection === 'up'
-                        ? 'text-emerald-300 bg-emerald-950/60'
-                        : 'text-amber-300 bg-amber-950/60'
-                    }`}
-                  >
-                    {abilitySnapshot.seahorseNextDirection === 'up' ? '▲ UP' : '▼ DOWN'}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -1639,7 +1686,7 @@ export const FlappyGame: React.FC = () => {
                     : 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40'
                 }`}
               >
-                {difficulty} mode &bull; Speed: +{getSpeedIncreasePercent(difficulty, reefProgress.currentReef)}% {difficulty === 'easy' ? '(+20% Gap)' : ''}
+                {difficulty} mode &bull; Speed: +{getSpeedIncreasePercent(difficulty, reefProgress.currentReef)}%
               </span>
             </div>
             <div className="w-full flex flex-col gap-2.5">
@@ -1653,12 +1700,25 @@ export const FlappyGame: React.FC = () => {
               </button>
 
               <button
+                id="pause-restart-btn"
+                onClick={() => {
+                  setIsPaused(false);
+                  handleReplayLevel();
+                }}
+                className="w-full py-2.5 px-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white font-bold rounded-xl border border-white/10 transition flex items-center justify-center gap-2 text-xs tracking-wider cursor-pointer shadow-md active:scale-95"
+                title="Replay Current Reef Level"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Replay</span>
+              </button>
+
+              <button
                 id="pause-home-btn"
                 onClick={() => {
                   setIsPaused(false);
                   handleRestart();
                 }}
-                className="w-full py-2.5 px-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white font-bold rounded-xl border border-white/10 transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer shadow-md active:scale-95"
+                className="w-full py-2.5 px-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white font-bold rounded-xl border border-white/10 transition flex items-center justify-center gap-2 text-xs tracking-wider cursor-pointer shadow-md active:scale-95"
                 title="Return to Home Screen"
               >
                 <Home className="w-3.5 h-3.5 text-cyan-400" />
@@ -1670,7 +1730,7 @@ export const FlappyGame: React.FC = () => {
       )}
 
       {/* Start Screen Overlay */}
-      {gameState === 'IDLE' && !isContinuingRun && (
+      {gameState === 'IDLE' && (
         <StartScreenOverlay
           stats={stats}
           selectedSkin={fishSkins[selectedFish] || DEFAULT_FISH_SKINS[selectedFish] || selectedSkin || 'coral'}
@@ -1691,90 +1751,6 @@ export const FlappyGame: React.FC = () => {
         />
       )}
 
-      {/* Ready for Next Reef Banner (when continuing survival run streak across levels) */}
-      {gameState === 'IDLE' && isContinuingRun && (
-        <div
-          id="ready-next-reef-banner"
-          className="absolute inset-0 flex flex-col items-center justify-center p-4 z-20 pointer-events-auto bg-slate-950/65 backdrop-blur-md select-none"
-          onClick={handleFlap}
-        >
-          <motion.div
-            initial={{ scale: 0.88, opacity: 0, y: 15 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="bg-slate-950/95 border border-cyan-400/40 rounded-3xl p-5 text-center shadow-2xl max-w-sm w-full flex flex-col items-center ring-1 ring-cyan-400/20"
-          >
-            <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-cyan-400 mb-1">
-              <Waves className="w-4 h-4" />
-              <span>Next Reef Ready</span>
-            </div>
-            <h2 className="text-2xl font-black font-game text-white tracking-wider">
-              Reef {reefProgress.currentReef}
-            </h2>
-            <div className="text-xs text-cyan-200/80 mb-2">
-              {getReefZoneName(reefProgress.currentReef)} &bull; {getColumnThemeName(reefProgress.currentReef)}
-            </div>
-            <div className="mb-3">
-              <span
-                className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full border ${
-                  difficulty === 'easy'
-                    ? 'text-emerald-300 border-emerald-500/40 bg-emerald-950/80'
-                    : difficulty === 'hard'
-                    ? 'text-orange-300 border-orange-500/40 bg-orange-950/80'
-                    : 'text-cyan-300 border-cyan-500/40 bg-cyan-950/80'
-                }`}
-              >
-                {difficulty} &bull; +{getSpeedIncreasePercent(difficulty, reefProgress.currentReef)}% speed
-              </span>
-            </div>
-
-            <div className="w-full bg-gradient-to-r from-amber-500/20 via-teal-500/15 to-cyan-500/20 border border-amber-400/40 rounded-2xl p-2.5 mb-4 flex items-center justify-between">
-              <div className="text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 block">
-                  Survival Streak
-                </span>
-                <span className="text-xs text-slate-300">Keep it alive!</span>
-              </div>
-              <div className="text-right">
-                <span className="text-2xl font-black font-game text-amber-300">
-                  {score}
-                </span>
-                <span className="text-[10px] text-amber-200/80 block -mt-1">
-                  columns
-                </span>
-              </div>
-            </div>
-
-            {/* Action buttons matching Reef Cleared modal */}
-            <div className="w-full flex flex-col gap-2.5">
-              <button
-                id="tap-to-swim-next-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleFlap();
-                }}
-                className="w-full py-3.5 sm:py-4 px-5 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white font-black uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2.5 shadow-lg shadow-cyan-500/25 transition active:scale-98 cursor-pointer text-base sm:text-lg"
-              >
-                <span>Keep Swimming!</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-
-              <button
-                id="exit-to-menu-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRestart();
-                }}
-                className="w-full py-2.5 px-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white font-bold rounded-xl border border-white/10 transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer shadow-md active:scale-95"
-                title="Return to Home Screen"
-              >
-                <Home className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Home</span>
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
       {/* Game Over Score Board Modal */}
       {gameState === 'GAMEOVER' && (
         <ScoreBoardModal
@@ -1785,6 +1761,7 @@ export const FlappyGame: React.FC = () => {
           highScore={stats.highScore}
           isNewHighScore={isNewHighScore}
           totalScore={stats.totalScore}
+          timeSeconds={stateRef.current.reefElapsedTime}
           reefProgress={reefProgress}
           stats={stats}
           difficulty={difficulty}
@@ -1820,21 +1797,8 @@ export const FlappyGame: React.FC = () => {
           reefMaxFragments={getReefMaxFragments(clearedReefLevel)}
           totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
           priorTotalFragmentsByFish={priorTotalFragments || undefined}
-          isAtlantisGateUnlocked={Boolean(
-            reefProgress.atlantisGateUnlocked ||
-            stats.atlantisGateUnlocked ||
-            clearedAtlantisGate ||
-            (stateRef.current.runStartReef === 1 &&
-              clearedReefLevel === TOTAL_REEF_LEVELS &&
-              stateRef.current.reefsClearedInRun >= TOTAL_REEF_LEVELS)
-          )}
-          isGulfStreamUnlocked={Boolean(
-            reefProgress.gulfStreamUnlocked ||
-            stats.gulfStreamUnlocked ||
-            clearedGulfStream ||
-            (reefProgress.currentFastReefsInRow && reefProgress.currentFastReefsInRow >= 10) ||
-            currentFastStreak >= 10
-          )}
+          isAtlantisGateUnlocked={clearedAtlantisGate}
+          isGulfStreamUnlocked={clearedGulfStream}
           clearTimeSeconds={lastClearTime}
           currentFastStreak={currentFastStreak}
           onEquipFish={handleSelectFish}

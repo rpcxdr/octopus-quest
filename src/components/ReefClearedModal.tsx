@@ -4,6 +4,7 @@ import { Trophy, ArrowRight, RotateCcw, Sparkles, Check, Home } from 'lucide-rea
 import { FishFragmentCounts, FishType, FishUnlockTier, GameDifficulty } from '../types';
 import { getReefZoneName, TOTAL_REEF_LEVELS } from '../utils/reef';
 import { ReefClearedRecordColumns } from './RecordColumnPodView';
+import { StreakStatsBar } from './StreakStatsBar';
 
 interface ReefClearedModalProps {
   isOpen: boolean;
@@ -126,7 +127,7 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
         >
           {/* Ambient celebration glow & background trophy watermark */}
           <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none text-cyan-400/[0.08] flex items-center justify-center select-none -z-0">
+          <div className="absolute inset-0 pointer-events-none text-cyan-400/[0.08] flex items-center justify-center select-none -z-0">
             <Trophy className="w-44 h-44 -rotate-6" strokeWidth={1.25} />
           </div>
 
@@ -134,61 +135,21 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
             Reef {reefLevel} Cleared!
           </h2>
 
-          <div className={`text-xs text-cyan-200/70 ${clearTimeSeconds !== undefined ? 'mb-1' : 'mb-3'}`}>
+          <div className="text-xs text-cyan-200/70 mb-2.5">
             {getReefZoneName(reefLevel)}
           </div>
-          {clearTimeSeconds !== undefined && (
-            <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
-              <span
-                className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                  isUnder10s
-                    ? 'text-amber-300 border-amber-500/40 bg-amber-950/80'
-                    : 'text-slate-300 border-white/10 bg-slate-800/80'
-                }`}
-              >
-                ⏱️ {clearTimeSeconds.toFixed(1)}s {isUnder10s ? `(⚡ Fast Reef #${currentFastStreak ?? 1}/10)` : ''}
-              </span>
-            </div>
-          )}
 
-          {/* Survival Streak Info Banner */}
-          {runTotalColumns !== undefined && (
-            <div
-              id="reef-cleared-survival-streak"
-              className="w-full mb-3 px-3.5 py-2.5 bg-gradient-to-r from-amber-500/20 via-teal-500/15 to-cyan-500/20 rounded-2xl border border-amber-400/40 text-amber-200 flex items-center justify-between shadow-md"
-            >
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                  <span>🔥 Survival Streak</span>
-                  {isNewHighScore && (
-                    <span className="px-1.5 py-0.5 bg-amber-400 text-slate-950 text-[9px] font-black rounded font-sans leading-none">
-                      NEW BEST
-                    </span>
-                  )}
-                </span>
-                <span className="text-xs text-slate-300">
-                  {reefsClearedInRun && reefsClearedInRun > 0
-                    ? `${reefsClearedInRun} ${reefsClearedInRun === 1 ? 'Reef' : 'Reefs'} Cleared`
-                    : 'Streak Active'}
-                </span>
-              </div>
-              <div className="text-right">
-                <div className="flex items-baseline justify-end gap-1">
-                  <span className="text-2xl font-black font-game text-amber-300">
-                    {runTotalColumns}
-                  </span>
-                  <span className="text-[10px] text-amber-200/80 font-bold">
-                    cols
-                  </span>
-                </div>
-                {highScore !== undefined && highScore > 0 && (
-                  <span className="text-[10px] text-slate-400 block -mt-0.5">
-                    Best: {Math.max(highScore, runTotalColumns)} cols
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Reusable Merged Single-Line Stats: Survival Streak, Best Streak & Time Score */}
+          <StreakStatsBar
+            id="reef-cleared-stats-line"
+            streak={runTotalColumns ?? 0}
+            reefsClearedInRun={reefsClearedInRun}
+            highScore={highScore}
+            isNewHighScore={isNewHighScore}
+            timeSeconds={clearTimeSeconds}
+            currentFastStreak={currentFastStreak}
+            isGameOver={false}
+          />
 
           {/* Atlantis Gate Badge Unlock Banner */}
           {isAtlantisGateUnlocked && (

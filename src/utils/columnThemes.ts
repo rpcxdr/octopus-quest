@@ -38,19 +38,77 @@ export interface ColumnThemePalette {
 /**
  * Returns the column theme for a given reef level.
  * Changes every 2 reefs through the 7 requested themes:
- * 1-2: original kelp-pipe columns
- * 3-4: block columns
- * 5-6: candy columns
- * 7-8: tangled kelp columns
- * 9-10: matrix-style columns
- * 11-12: lava columns
- * 13-14: sunken Atlantis
+ * 1: original kelp-pipe columns
+ * 2: block columns
+ * 3: candy columns
+ * 4: tangled kelp columns
+ * 5: matrix-style columns
+ * 6: lava columns
+ * 7: sunken Atlantis
  * (cycles back to original kelp at 15-16, etc.)
  */
 export function getColumnThemeForReef(reefLevel: number): ColumnThemeType {
   const normalized = Math.max(1, Math.floor(reefLevel));
-  const index = Math.floor((normalized - 1) / 2) % COLUMN_THEMES.length;
+  const index = (normalized - 1) % COLUMN_THEMES.length;
   return COLUMN_THEMES[index];
+}
+
+export type CandyColumnType = 0 | 1 | 2;
+
+/**
+ * Deterministically chooses one of 3 visually unique candy types for each column
+ * within a reef level, randomly changing from column to column based on the reef level seed:
+ * 0: Chunks of Candy (stacked irregular candy chunks, cleaved facets, sugar dust seams, translucent confection bites)
+ * 1: Rock Candy Crystals (clusters of prismatic quartz-like sugar crystals, jagged crystal points, facet reflections)
+ * 2: Candy Cane (iconic diagonal spiral peppermint stripes on a translucent sugar-glass cane)
+ */
+export function getCandyTypeForColumn(
+  reefLevel: number,
+  colNum?: number
+): CandyColumnType {
+  const safeLevel = Math.max(1, Math.min(50, Math.floor(reefLevel)));
+  let s = (safeLevel * 3571 + 919) >>> 0;
+  const rng = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const colIndex = colNum !== undefined ? ((colNum - 1) % 10 + 10) % 10 : 0;
+  let chosenType: CandyColumnType = 0;
+  let prev = -1;
+  let prevPrev = -1;
+
+  for (let i = 0; i <= colIndex; i++) {
+    let t = Math.floor(rng() * 3);
+    if (t === prev && prev === prevPrev) {
+      t = (t + 1 + Math.floor(rng() * 2)) % 3;
+    }
+    prevPrev = prev;
+    prev = t;
+    if (i === colIndex) {
+      chosenType = t as CandyColumnType;
+    }
+  }
+
+  return chosenType;
+}
+
+export function getCandyTypeForReef(reefLevel: number, colNum?: number): CandyColumnType {
+  return getCandyTypeForColumn(reefLevel, colNum);
+}
+
+export function getCandyTypeName(reefLevel: number, colNum?: number): string {
+  const type = getCandyTypeForColumn(reefLevel, colNum);
+  switch (type) {
+    case 0:
+      return 'Candy Chunks';
+    case 1:
+      return 'Rock Candy Crystals';
+    case 2:
+      return 'Candy Cane';
+  }
 }
 
 export function getColumnThemeName(reefLevel: number): string {

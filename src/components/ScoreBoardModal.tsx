@@ -6,6 +6,7 @@ import { FishFragmentCounts, FishType, GameDifficulty, GameStats, ReefProgress }
 import { getReefZoneName } from '../utils/reef';
 import { ReefClearedRecordColumns } from './RecordColumnPodView';
 import { REEF_FISH_ORDER } from './ReefFragmentRecordList';
+import { StreakStatsBar } from './StreakStatsBar';
 
 interface ScoreBoardModalProps {
   score?: number;
@@ -15,6 +16,7 @@ interface ScoreBoardModalProps {
   highScore?: number;
   isNewHighScore?: boolean;
   totalScore?: number;
+  timeSeconds?: number;
   reefProgress?: ReefProgress;
   stats?: GameStats;
   difficulty?: GameDifficulty;
@@ -34,6 +36,7 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
   reefColumn,
   highScore,
   isNewHighScore,
+  timeSeconds,
   attemptFragments,
   reefMaxFragments,
   totalFragmentsByFish,
@@ -94,42 +97,17 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
           Reef {reefLevel}: {getReefZoneName(reefLevel)}
         </div>
 
-        {/* Survival Streak Info Banner */}
-        <div
-          id="game-over-survival-streak"
-          className="w-full mb-3 px-3.5 py-2.5 bg-gradient-to-r from-amber-500/15 via-slate-800/60 to-cyan-500/15 border border-amber-400/30 rounded-2xl flex items-center justify-between relative z-10 shadow-inner"
-        >
-          <div className="flex flex-col text-left">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-              <span>🔥 Survival Streak</span>
-              {isNewHighScore && (
-                <span className="px-1.5 py-0.5 bg-amber-400 text-slate-950 text-[9px] font-black rounded font-sans leading-none">
-                  NEW BEST
-                </span>
-              )}
-            </span>
-            <span className="text-xs text-slate-300">
-              {reefsClearedInRun && reefsClearedInRun > 0
-                ? `${reefsClearedInRun} ${reefsClearedInRun === 1 ? 'Reef' : 'Reefs'} Cleared`
-                : `Reached Column ${reefColumn || 1}/10`}
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="flex items-baseline justify-end gap-1">
-              <span className="text-2xl font-black font-game text-amber-300">
-                {score ?? 0}
-              </span>
-              <span className="text-[10px] text-amber-200/80 font-bold">
-                cols
-              </span>
-            </div>
-            {highScore !== undefined && highScore > 0 && (
-              <span className="text-[10px] text-slate-400 block -mt-0.5">
-                Best: {Math.max(highScore, score ?? 0)} cols
-              </span>
-            )}
-          </div>
-        </div>
+        {/* Reusable Merged Single-Line Stats: Survival Streak, Best Streak & Time Score */}
+        <StreakStatsBar
+          id="game-over-stats-line"
+          streak={score ?? 0}
+          reefsClearedInRun={reefsClearedInRun}
+          reefColumn={reefColumn}
+          highScore={highScore}
+          isNewHighScore={isNewHighScore}
+          timeSeconds={timeSeconds}
+          isGameOver={true}
+        />
 
         {/* Reused Fragment Records Summary Layout with Lost Achievements Overlay (only if fragments were collected) */}
         {hasCollectedFragments && (

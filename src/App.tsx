@@ -11,7 +11,7 @@ export default function App() {
   return (
     <main
       id="flappy-app-root"
-      className="w-screen h-screen overflow-hidden bg-slate-950 flex flex-col items-center justify-center p-2 sm:p-4 text-slate-100 select-none relative font-sans"
+      className="w-screen h-screen overflow-hidden bg-slate-950 flex flex-col items-center justify-center p-0 sm:p-4 text-slate-100 select-none relative font-sans"
     >
       {/* Immersive UI: Deep Ocean Atmospheric Glows */}
       <div className="absolute top-12 left-[10%] w-72 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />

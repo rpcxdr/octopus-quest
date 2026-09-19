@@ -120,14 +120,17 @@ export function getSpeedIncreasePercent(difficulty?: GameDifficulty | string, re
  */
 export function getPhysicsForDifficulty(
   difficulty?: GameDifficulty | string,
-  reefLevel: number = 1
+  reefLevel: number = 1,
+  customVirtualHeight?: number
 ): PhysicsConfig {
   const isEasy = difficulty === 'easy';
   const totalPercent = getSpeedIncreasePercent(difficulty, reefLevel);
   const speedMultiplier = 1 + totalPercent / 100;
+  const virtualHeight = customVirtualHeight || DEFAULT_PHYSICS.virtualHeight;
 
   return {
     ...DEFAULT_PHYSICS,
+    virtualHeight,
     pipeGap: isEasy ? Math.round(DEFAULT_PHYSICS.pipeGap * 1.20) : DEFAULT_PHYSICS.pipeGap,
     pipeSpeed: Math.round(DEFAULT_PHYSICS.pipeSpeed * speedMultiplier),
   };
