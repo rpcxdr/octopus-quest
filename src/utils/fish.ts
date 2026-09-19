@@ -296,20 +296,24 @@ export function getFishSpecialPower(
  * - Octopus has this option from the start.
  * - Sting Ray earns this ability when the Gulf Stream rune is achieved.
  * - Puffer Fish earns this ability when the Atlantis Gate rune is achieved.
+ * - Clown Fish earns this ability when the Tidesong rune is achieved.
  * - Any other fish can be enabled dynamically as new rune goals or mechanics are introduced.
  */
 export function canFishChangeColor(
   fishType: FishType,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Record<FishType, number>
 ): boolean {
   switch (fishType) {
     case 'octopus':
       return true;
     case 'singray':
-      return isBadgeUnlocked('gulf_stream', 0, reefProgress, stats);
+      return isBadgeUnlocked('gulf_stream', 0, reefProgress, stats, totalFragmentsByFish);
     case 'pufferfish':
-      return isBadgeUnlocked('atlantis_gate', 0, reefProgress, stats);
+      return isBadgeUnlocked('atlantis_gate', 0, reefProgress, stats, totalFragmentsByFish);
+    case 'clownfish':
+      return isBadgeUnlocked('tidesong', 0, reefProgress, stats, totalFragmentsByFish);
     default:
       return false;
   }
@@ -321,9 +325,10 @@ export function canFishChangeColor(
 export function getFishColorUnlockHint(
   fishType: FishType,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Record<FishType, number>
 ): string | null {
-  if (canFishChangeColor(fishType, reefProgress, stats)) {
+  if (canFishChangeColor(fishType, reefProgress, stats, totalFragmentsByFish)) {
     return null;
   }
   switch (fishType) {
@@ -331,6 +336,8 @@ export function getFishColorUnlockHint(
       return '🌊 Complete Gulf Stream Rune to unlock Sting Ray shades';
     case 'pufferfish':
       return '🏛️ Complete Atlantis Gate Rune to unlock Puffer Fish shades';
+    case 'clownfish':
+      return '🐟 Complete Tidesong Rune to unlock Clown Fish shades';
     default:
       return null;
   }

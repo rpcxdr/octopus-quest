@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Sparkles, Lock, X } from 'lucide-react';
 import { BadgeDefinition, BadgeProgress, getBadgeVisual } from '../utils/badges';
+import { RuneBadgeIcon } from './RuneBadgeIcon';
 
 export interface RunePowerUnlockedPanelProps {
   badge: BadgeDefinition;
@@ -56,10 +57,14 @@ export const RunePowerUnlockedPanel: React.FC<RunePowerUnlockedPanelProps> = ({
 
         {/* Badge Icon Emblem Centerpiece - Unsaturated & Static (No animations) */}
         <div className="relative flex flex-col items-center justify-center my-2 z-10">
-          <div className="relative shrink-0 w-32 h-32 sm:w-36 sm:h-36 rounded-3xl border-2 border-slate-700/80 bg-slate-900/80 shadow-inner flex items-center justify-center overflow-hidden">
-            <div className="text-6xl sm:text-7xl select-none filter grayscale opacity-50">
-              {badge.emoji}
-            </div>
+          <div className="relative shrink-0 w-32 h-32 sm:w-36 sm:h-36 rounded-3xl border-2 border-slate-700/80 bg-slate-900/80 shadow-inner flex items-center justify-center overflow-hidden p-2">
+            <RuneBadgeIcon
+              badgeId={badge.id}
+              emoji={badge.emoji}
+              size={badge.id === 'tidesong' ? 90 : '4.25rem'}
+              grayscale={true}
+              className="drop-shadow-none"
+            />
             {/* Small lock emblem badge in bottom corner */}
             <div className="absolute bottom-2 right-2 bg-slate-950/90 p-1 rounded-lg border border-slate-700 text-slate-400">
               <Lock className="w-3.5 h-3.5" />
@@ -244,13 +249,17 @@ export const RunePowerUnlockedPanel: React.FC<RunePowerUnlockedPanelProps> = ({
             className="absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 pointer-events-none"
           />
 
-          {/* Gentle floating emoji */}
+          {/* Gentle floating emoji / custom school of fish icon */}
           <motion.div
             animate={{ y: [0, -4, 0] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-            className="text-6xl sm:text-7xl select-none filter drop-shadow-[0_6px_16px_rgba(0,0,0,0.7)]"
+            className="flex items-center justify-center select-none filter drop-shadow-[0_6px_16px_rgba(0,0,0,0.7)]"
           >
-            {badge.emoji}
+            <RuneBadgeIcon
+              badgeId={badge.id}
+              emoji={badge.emoji}
+              size={badge.id === 'tidesong' ? 95 : '4.5rem'}
+            />
           </motion.div>
 
           {/* Corner sparkle ping */}

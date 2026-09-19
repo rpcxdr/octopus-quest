@@ -106,3 +106,80 @@ export function getFishBadgeDataUrl(fishType: FishType, customSkin?: BirdSkinCon
   dataUrlCache.set(cacheKey, dataUrl);
   return dataUrl;
 }
+
+/**
+ * Renders a dynamic school of fish of different types (Clownfish, Pufferfish, Seahorse, Singray, Octopus)
+ * swimming together in a cohesive oceanic school formation.
+ */
+export function drawSchoolOfFishCanvas(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number
+): void {
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  // 5 diverse fish of different species swimming together in a school formation:
+  const fishSchool: Array<{
+    type: FishType;
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+    wingFrame: number;
+  }> = [
+    { type: 'singray', x: centerX - width * 0.22, y: centerY - height * 0.2, scale: 0.58, rotation: 0.05, wingFrame: 0 },
+    { type: 'pufferfish', x: centerX - width * 0.2, y: centerY + height * 0.2, scale: 0.6, rotation: -0.06, wingFrame: 1 },
+    { type: 'seahorse', x: centerX + width * 0.22, y: centerY - height * 0.18, scale: 0.56, rotation: 0.1, wingFrame: 0 },
+    { type: 'octopus', x: centerX + width * 0.02, y: centerY + height * 0.22, scale: 0.58, rotation: -0.08, wingFrame: 1 },
+    { type: 'clownfish', x: centerX + width * 0.08, y: centerY - height * 0.02, scale: 0.76, rotation: 0.02, wingFrame: 2 },
+  ];
+
+  for (const item of fishSchool) {
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    ctx.rotate(item.rotation);
+    const config = FISH_BADGE_CONFIGS[item.type] || FISH_BADGE_CONFIGS.octopus;
+    const itemScale = (width / 42) * config.scale * item.scale;
+    ctx.scale(itemScale, itemScale);
+
+    const staticBird: BirdState = {
+      x: config.offsetX,
+      y: config.offsetY,
+      width: 28,
+      height: 28,
+      velocity: 0,
+      rotation: 0,
+      wingFrame: item.wingFrame,
+      wingTimer: 0,
+      alive: true,
+    };
+    const defaultSkinId = DEFAULT_FISH_SKINS[item.type] || 'coral';
+    const skin = BIRD_SKINS[defaultSkinId] || BIRD_SKINS.coral;
+    drawBird(ctx, staticBird, skin, 300, item.type);
+    ctx.restore();
+  }
+}
+
+let schoolDataUrlCache: string = '';
+
+/**
+ * Returns a high-resolution PNG data URL rendering of the school of fish.
+ */
+export function getSchoolOfFishDataUrl(): string {
+  if (typeof document === 'undefined') return '';
+  if (schoolDataUrlCache) return schoolDataUrlCache;
+
+  const canvas = document.createElement('canvas');
+  const canvasSize = 128;
+  canvas.width = canvasSize;
+  canvas.height = canvasSize;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+
+  drawSchoolOfFishCanvas(ctx, canvasSize, canvasSize);
+
+  schoolDataUrlCache = canvas.toDataURL('image/png');
+  return schoolDataUrlCache;
+}

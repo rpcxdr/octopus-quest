@@ -1,4 +1,5 @@
-import { BadgeId, GameBadge, GameStats, ReefProgress } from '../types';
+import { BadgeId, FishType, GameBadge, GameStats, ReefProgress } from '../types';
+import { getTotalFragmentsByFish } from './storage';
 
 export interface BadgeDefinition {
   id: BadgeId;
@@ -18,6 +19,7 @@ export interface BadgeDefinition {
  * (4) Diamond: Requirements: pass reef level 50, Effects: +2 fragments per reef.
  * (5) Gulf Stream: Requirements: Complete 10 levels in a row, each in 10 seconds or less, Effects: +1 fragments / reef
  * (6) Atlantis Gate: Requirements: Complete all 50 reefs without dying, Effects: +1 fragments / reef
+ * (7) Tidesong: Requirements: Activate all of the fish, Effects: +1 fragments / reef and Clown Fish Colors
  */
 export const BADGES: BadgeDefinition[] = [
   {
@@ -68,6 +70,14 @@ export const BADGES: BadgeDefinition[] = [
     effect: '+1 fragments / reef & Puffer Fish colors',
     bonusFragments: 1,
   },
+  {
+    id: 'tidesong',
+    name: 'Tidesong',
+    emoji: '🐟',
+    requirement: 'Activate all of the fish',
+    effect: '+1 fragments / reef & Clown Fish colors',
+    bonusFragments: 1,
+  },
 ];
 
 /**
@@ -78,12 +88,14 @@ export const BADGES: BadgeDefinition[] = [
  * - Diamond: Earned by passing Reef 50
  * - Gulf Stream: Earned by completing 10 levels in a row, each in 10 seconds or less
  * - Atlantis Gate: Earned by completing all 50 reefs in order without dying
+ * - Tidesong: Earned by activating all of the fish
  */
 export function isBadgeUnlocked(
   badgeId: BadgeId,
   totalPoints: number,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): boolean {
   switch (badgeId) {
     case 'coral':
@@ -115,6 +127,18 @@ export function isBadgeUnlocked(
         !!stats?.atlantisGateUnlocked ||
         (stats?.bestReefsAchieved !== undefined && stats.bestReefsAchieved >= 50)
       );
+    case 'tidesong': {
+      if (reefProgress?.tidesongUnlocked || stats?.tidesongUnlocked) {
+        return true;
+      }
+      const frags = totalFragmentsByFish || getTotalFragmentsByFish();
+      return (
+        (frags.pufferfish || 0) >= 10 &&
+        (frags.clownfish || 0) >= 10 &&
+        (frags.singray || 0) >= 10 &&
+        (frags.seahorse || 0) >= 10
+      );
+    }
     default:
       return false;
   }
@@ -126,11 +150,12 @@ export function isBadgeUnlocked(
 export function getAllBadges(
   totalPoints: number,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): GameBadge[] {
   return BADGES.map((b) => ({
     ...b,
-    unlocked: isBadgeUnlocked(b.id, totalPoints, reefProgress, stats),
+    unlocked: isBadgeUnlocked(b.id, totalPoints, reefProgress, stats, totalFragmentsByFish),
   }));
 }
 
@@ -152,9 +177,10 @@ export function getBadgeProgress(
   badgeId: BadgeId,
   totalPoints: number,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): BadgeProgress {
-  const isAchieved = isBadgeUnlocked(badgeId, totalPoints, reefProgress, stats);
+  const isAchieved = isBadgeUnlocked(badgeId, totalPoints, reefProgress, stats, totalFragmentsByFish);
 
   switch (badgeId) {
     case 'coral': {
@@ -230,6 +256,23 @@ export function getBadgeProgress(
       const percent = Math.min(100, Math.round((current / target) * 100));
       return { current, target, unit: 'reefs', percent, isAchieved };
     }
+    case 'tidesong': {
+      const target = 5;
+      let current = 0;
+      if (isAchieved) {
+        current = target;
+      } else {
+        const frags = totalFragmentsByFish || getTotalFragmentsByFish();
+        let count = 1; // Octopus is always active from the start
+        if ((frags.pufferfish || 0) >= 10) count++;
+        if ((frags.clownfish || 0) >= 10) count++;
+        if ((frags.singray || 0) >= 10) count++;
+        if ((frags.seahorse || 0) >= 10) count++;
+        current = Math.min(target, count);
+      }
+      const percent = Math.min(100, Math.round((current / target) * 100));
+      return { current, target, unit: 'fish', percent, isAchieved };
+    }
     default:
       return { current: 0, target: 1, unit: '', percent: 0, isAchieved: false };
   }
@@ -243,28 +286,32 @@ export function getBadgeProgress(
  * - Diamond: +2 (at Reef 50 cleared)
  * - Gulf Stream: +1 (10 reef levels in a row each in 10s or less)
  * - Atlantis Gate: +1 (Complete all 50 reefs in order without dying)
+ * - Tidesong: +1 (Activate all of the fish)
  * (Shell adds 0 at 20 total points)
- * Example: Completed Reef 50 with all badges = 0 + 1 + 1 + 2 + 1 + 1 = 6 base fragments per reef.
  */
 export function getBaseFragments(
   totalPoints: number,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): number {
   let base = 0;
-  if (isBadgeUnlocked('coral', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('coral', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     base += 1;
   }
-  if (isBadgeUnlocked('nautilus', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('nautilus', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     base += 1;
   }
-  if (isBadgeUnlocked('diamond', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('diamond', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     base += 2;
   }
-  if (isBadgeUnlocked('gulf_stream', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('gulf_stream', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     base += 1;
   }
-  if (isBadgeUnlocked('atlantis_gate', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('atlantis_gate', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
+    base += 1;
+  }
+  if (isBadgeUnlocked('tidesong', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     base += 1;
   }
   return base;
@@ -276,7 +323,8 @@ export function getBaseFragments(
 export function getHighestBadge(
   totalPoints: number,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): {
   id: BadgeId | 'none';
   label: string;
@@ -286,7 +334,18 @@ export function getHighestBadge(
   border: string;
   bg: string;
 } {
-  if (isBadgeUnlocked('atlantis_gate', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('tidesong', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
+    return {
+      id: 'tidesong',
+      label: 'Tidesong',
+      emoji: '🐟',
+      effect: '+1 fragments / reef & Clown Fish colors',
+      color: 'text-teal-300',
+      border: 'border-teal-400/60',
+      bg: 'bg-gradient-to-b from-teal-500/30 to-cyan-800/60',
+    };
+  }
+  if (isBadgeUnlocked('atlantis_gate', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     return {
       id: 'atlantis_gate',
       label: 'Atlantis Gate',
@@ -297,7 +356,7 @@ export function getHighestBadge(
       bg: 'bg-gradient-to-b from-indigo-500/30 to-purple-800/60',
     };
   }
-  if (isBadgeUnlocked('gulf_stream', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('gulf_stream', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     return {
       id: 'gulf_stream',
       label: 'Gulf Stream',
@@ -308,7 +367,7 @@ export function getHighestBadge(
       bg: 'bg-gradient-to-b from-sky-500/30 to-blue-700/60',
     };
   }
-  if (isBadgeUnlocked('diamond', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('diamond', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     return {
       id: 'diamond',
       label: 'Diamond',
@@ -319,7 +378,7 @@ export function getHighestBadge(
       bg: 'bg-gradient-to-b from-cyan-500/30 to-cyan-700/60',
     };
   }
-  if (isBadgeUnlocked('nautilus', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('nautilus', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     return {
       id: 'nautilus',
       label: 'Nautilus',
@@ -330,7 +389,7 @@ export function getHighestBadge(
       bg: 'bg-gradient-to-b from-yellow-500/30 to-yellow-700/60',
     };
   }
-  if (isBadgeUnlocked('shell', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('shell', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     return {
       id: 'shell',
       label: 'Shell',
@@ -341,7 +400,7 @@ export function getHighestBadge(
       bg: 'bg-gradient-to-b from-slate-500/40 to-slate-700/60',
     };
   }
-  if (isBadgeUnlocked('coral', totalPoints, reefProgress, stats)) {
+  if (isBadgeUnlocked('coral', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     return {
       id: 'coral',
       label: 'Coral',
@@ -376,6 +435,16 @@ export function getBadgeVisual(badgeId: BadgeId): {
   glow: string;
 } {
   switch (badgeId) {
+    case 'tidesong':
+      return {
+        id: 'tidesong',
+        name: 'Tidesong',
+        emoji: '🐟',
+        color: 'text-teal-300',
+        border: 'border-teal-400/60',
+        bg: 'bg-gradient-to-b from-teal-950/80 via-cyan-950/70 to-slate-950/90',
+        glow: 'shadow-[0_0_24px_rgba(45,212,191,0.35)]',
+      };
     case 'atlantis_gate':
       return {
         id: 'atlantis_gate',
@@ -449,7 +518,8 @@ export function getBadgeVisual(badgeId: BadgeId): {
 export function getNextBadgeGoal(
   totalPoints: number,
   reefProgress?: ReefProgress,
-  stats?: GameStats
+  stats?: GameStats,
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): {
   badge: BadgeDefinition;
   progress: BadgeProgress;
@@ -458,7 +528,7 @@ export function getNextBadgeGoal(
 
   for (let i = 0; i < BADGES.length; i++) {
     const badge = BADGES[i];
-    const progress = getBadgeProgress(badge.id, totalPoints, reefProgress, stats);
+    const progress = getBadgeProgress(badge.id, totalPoints, reefProgress, stats, totalFragmentsByFish);
 
     // Skip if completed
     if (progress.isAchieved || progress.percent >= 100) {

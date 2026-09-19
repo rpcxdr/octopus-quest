@@ -160,6 +160,7 @@ export const FlappyGame: React.FC = () => {
   const [isMuted, setIsMuted] = useState<boolean>(sound.getMuted());
   const [ripples, setRipples] = useState<Ripple[]>([]);
   const [allReefFragments, setAllReefFragments] = useState<AllReefFragments>(() => loadReefFragments());
+  const totalFragmentsByFish = getTotalFragmentsByFish(allReefFragments);
   const [currentAttemptFragments, setCurrentAttemptFragments] = useState<FishFragmentCounts>(() =>
     createEmptyFragmentCounts()
   );
@@ -182,23 +183,23 @@ export const FlappyGame: React.FC = () => {
   const initialOctopusLevel = getFishLevel(initialTotalFrags['octopus'] || 0);
   const initialStats = loadGameStats();
   const initialProgress = loadReefProgress();
-  const initialBaseFragments = getBaseFragments(initialStats.totalScore, initialProgress, initialStats);
+  const initialBaseFragments = getBaseFragments(initialStats.totalScore, initialProgress, initialStats, initialTotalFrags);
   const initialFragmentCount = initialFish === 'octopus' ? initialBaseFragments + initialOctopusLevel : initialBaseFragments;
 
   // Track badges unlocked before level starts to detect new achievements earned during the run
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<BadgeDefinition[]>([]);
   const badgesBeforeLevelRef = useRef<BadgeId[]>(
-    BADGES.filter((b) => isBadgeUnlocked(b.id, initialStats.totalScore, initialProgress, initialStats)).map((b) => b.id)
+    BADGES.filter((b) => isBadgeUnlocked(b.id, initialStats.totalScore, initialProgress, initialStats, initialTotalFrags)).map((b) => b.id)
   );
 
   // Keep badgesBeforeLevelRef in sync while player is idle on the home screen
   useEffect(() => {
     if (gameState === 'IDLE') {
       badgesBeforeLevelRef.current = BADGES.filter((b) =>
-        isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats)
+        isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
       ).map((b) => b.id);
     }
-  }, [gameState, stats.totalScore, reefProgress, stats]);
+  }, [gameState, stats.totalScore, reefProgress, stats, totalFragmentsByFish]);
 
   const [abilitySnapshot, setAbilitySnapshot] = useState<FishAbilityState>(() =>
     FishBehaviorFactory.create(initialFish, initialFishLevel).getAbilityState()
@@ -378,7 +379,7 @@ export const FlappyGame: React.FC = () => {
             s.reefColumns = generateReefColumns(s.currentReef, config, s.difficulty);
             const frags = getTotalFragmentsByFish(allReefFragments);
             const octLevel = getFishLevel(frags['octopus'] || 0);
-            const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats);
+            const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats, frags);
             const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
             s.floatingFragments = generateReefFloatingFragments(
               computedHeight,
@@ -443,7 +444,7 @@ export const FlappyGame: React.FC = () => {
     if (s.gameState === 'IDLE') {
       const config = getConfig(s.difficulty, s.currentReef);
       const octLevel = getFishLevel(frags['octopus'] || 0);
-      const baseFrags = getBaseFragments(stats.totalScore, reefProgress);
+      const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats, frags);
       const fragCount = fish === 'octopus' ? baseFrags + octLevel : baseFrags;
       s.floatingFragments = generateReefFloatingFragments(
         config.virtualHeight,
@@ -479,7 +480,7 @@ export const FlappyGame: React.FC = () => {
     const safeReef = updated.currentReef;
     s.currentReef = safeReef;
     badgesBeforeLevelRef.current = BADGES.filter((b) =>
-      isBadgeUnlocked(b.id, stats.totalScore, updated, stats)
+      isBadgeUnlocked(b.id, stats.totalScore, updated, stats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
     const config = getConfig(s.difficulty, safeReef);
@@ -503,7 +504,7 @@ export const FlappyGame: React.FC = () => {
 
     const frags = getTotalFragmentsByFish(allReefFragments);
     const octLevel = getFishLevel(frags['octopus'] || 0);
-    const baseFrags = getBaseFragments(stats.totalScore, updated, stats);
+    const baseFrags = getBaseFragments(stats.totalScore, updated, stats, frags);
     const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
     s.floatingFragments = generateReefFloatingFragments(
       config.virtualHeight,
@@ -525,7 +526,7 @@ export const FlappyGame: React.FC = () => {
     setIsPaused(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     badgesBeforeLevelRef.current = BADGES.filter((b) =>
-      isBadgeUnlocked(b.id, stats.totalScore, updated, stats)
+      isBadgeUnlocked(b.id, stats.totalScore, updated, stats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
     setGameState('IDLE');
@@ -547,7 +548,7 @@ export const FlappyGame: React.FC = () => {
     s.currentReef = safeNext;
     const currentStats = loadGameStats();
     badgesBeforeLevelRef.current = BADGES.filter((b) =>
-      isBadgeUnlocked(b.id, currentStats.totalScore, updated, currentStats)
+      isBadgeUnlocked(b.id, currentStats.totalScore, updated, currentStats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
     const config = getConfig(s.difficulty, safeNext);
@@ -565,7 +566,7 @@ export const FlappyGame: React.FC = () => {
 
     const frags = getTotalFragmentsByFish(allReefFragments);
     const octLevel = getFishLevel(frags['octopus'] || 0);
-    const baseFrags = getBaseFragments(currentStats.totalScore, updated, currentStats);
+    const baseFrags = getBaseFragments(currentStats.totalScore, updated, currentStats, frags);
     const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
     s.floatingFragments = generateReefFloatingFragments(
       config.virtualHeight,
@@ -628,7 +629,7 @@ export const FlappyGame: React.FC = () => {
       if (s.floatingFragments === undefined) {
         const frags = getTotalFragmentsByFish(allReefFragments);
         const octLevel = getFishLevel(frags['octopus'] || 0);
-        const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats);
+        const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats, frags);
         const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
         s.floatingFragments = generateReefFloatingFragments(
           config.virtualHeight,
@@ -640,7 +641,7 @@ export const FlappyGame: React.FC = () => {
       }
       // Transition from start/ready to playing
       badgesBeforeLevelRef.current = BADGES.filter((b) =>
-        isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats)
+        isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
       ).map((b) => b.id);
       setNewlyUnlockedBadges([]);
       s.gameState = 'PLAYING';
@@ -724,7 +725,7 @@ export const FlappyGame: React.FC = () => {
 
     const frags = getTotalFragmentsByFish(allReefFragments);
     const octLevel = getFishLevel(frags['octopus'] || 0);
-    const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats);
+    const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats, frags);
     const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
     s.floatingFragments = generateReefFloatingFragments(
       config.virtualHeight,
@@ -753,7 +754,7 @@ export const FlappyGame: React.FC = () => {
     setCurrentFastStreak(0);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('IDLE');
-  }, [allReefFragments, getConfig]);
+  }, [allReefFragments, getConfig, totalFragmentsByFish, stats.totalScore, reefProgress, stats]);
 
   // Handle immediately replaying the current reef without returning to the home screen
   const handleReplayLevel = useCallback(() => {
@@ -795,7 +796,7 @@ export const FlappyGame: React.FC = () => {
 
     const frags = getTotalFragmentsByFish(allReefFragments);
     const octLevel = getFishLevel(frags['octopus'] || 0);
-    const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats);
+    const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats, frags);
     const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
     s.floatingFragments = generateReefFloatingFragments(
       config.virtualHeight,
@@ -844,7 +845,7 @@ export const FlappyGame: React.FC = () => {
     setLastClearTime(undefined);
     setCurrentFastStreak(0);
     badgesBeforeLevelRef.current = BADGES.filter((b) =>
-      isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats)
+      isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
@@ -1192,6 +1193,7 @@ export const FlappyGame: React.FC = () => {
                   currentFastStreak: newFastStreak,
                   atlantisGateUnlockedNow,
                   gulfStreamUnlockedNow,
+                  tidesongUnlockedNow,
                 } = completeReefLevel(
                   clearedLevel,
                   s.flapsCount,
@@ -1252,9 +1254,10 @@ export const FlappyGame: React.FC = () => {
                 const priorBadges = badgesBeforeLevelRef.current;
                 const earnedBadges = BADGES.filter((b) => {
                   const unlockedNow =
-                    isBadgeUnlocked(b.id, updatedStats.totalScore, updatedReefProgress, updatedStats) ||
+                    isBadgeUnlocked(b.id, updatedStats.totalScore, updatedReefProgress, updatedStats, newFragsOnClear) ||
                     (b.id === 'atlantis_gate' && atlantisGateUnlockedNow) ||
-                    (b.id === 'gulf_stream' && gulfStreamUnlockedNow);
+                    (b.id === 'gulf_stream' && gulfStreamUnlockedNow) ||
+                    (b.id === 'tidesong' && tidesongUnlockedNow);
                   return unlockedNow && !priorBadges.includes(b.id);
                 });
                 setNewlyUnlockedBadges(earnedBadges);
@@ -1321,7 +1324,7 @@ export const FlappyGame: React.FC = () => {
               // Check if any new badges were unlocked before dying on this level run (e.g. total score milestone)
               const priorBadges = badgesBeforeLevelRef.current;
               const earnedBadges = BADGES.filter((b) => {
-                const unlockedNow = isBadgeUnlocked(b.id, updatedStats.totalScore, reefProgress, updatedStats);
+                const unlockedNow = isBadgeUnlocked(b.id, updatedStats.totalScore, reefProgress, updatedStats, totalFragmentsByFish);
                 return unlockedNow && !priorBadges.includes(b.id);
               });
               setNewlyUnlockedBadges(earnedBadges);
@@ -1567,7 +1570,7 @@ export const FlappyGame: React.FC = () => {
     s.selectedFish = 'octopus';
     s.fishBehavior = FishBehaviorFactory.create('octopus', 0);
     s.fishBehavior.reset();
-    const baseFrags = getBaseFragments(0, freshReefProgress, freshStats);
+    const baseFrags = getBaseFragments(0, freshReefProgress, freshStats, createEmptyFragmentCounts());
     s.floatingFragments = generateReefFloatingFragments(
       config.virtualHeight,
       config.groundHeight,

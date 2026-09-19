@@ -4022,7 +4022,7 @@ export function drawBird(
       drawPufferFish(ctx, bird, skin, time);
       break;
     case 'clownfish':
-      drawClownFish(ctx, bird, time, abilityState);
+      drawClownFish(ctx, bird, skin, time, abilityState);
       break;
     case 'singray':
       drawSingRay(ctx, bird, skin, time);
@@ -4580,6 +4580,7 @@ function drawPufferFish(
 function drawClownFish(
   ctx: CanvasRenderingContext2D,
   bird: BirdState,
+  skin: BirdSkinConfig,
   time: number,
   abilityState?: FishAbilityState
 ) {
@@ -4596,11 +4597,13 @@ function drawClownFish(
   const maxTaps = (abilityState?.fishLevel ?? 1) + 1;
   const effortRatio = Math.min(1, Math.max(0, currentTaps / maxTaps));
 
-  // Ambient coral orange / aqua pressure halo that expands with swimming effort
+  // Ambient pressure halo that expands with swimming effort
   const haloR = 34 + effortRatio * 12;
   const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, haloR);
-  halo.addColorStop(0, `rgba(249, 115, 22, ${0.45 + effortRatio * 0.25})`);
-  halo.addColorStop(0.5, `rgba(56, 189, 248, ${effortRatio * 0.25})`);
+  const primaryColor = skin.bodyColor || '#f97316';
+  const secondaryColor = skin.wingColor || '#ea580c';
+  halo.addColorStop(0, `${primaryColor}88`);
+  halo.addColorStop(0.5, `${secondaryColor}44`);
   halo.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = halo;
   ctx.beginPath();
@@ -4619,7 +4622,7 @@ function drawClownFish(
   ctx.save();
   ctx.translate(-13, 0);
   ctx.rotate(tailAngle);
-  ctx.fillStyle = '#f97316';
+  ctx.fillStyle = skin.wingColor || '#f97316';
   ctx.strokeStyle = '#020617';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
@@ -4666,7 +4669,7 @@ function drawClownFish(
   const dorsalFlutter = Math.sin(tSec * (tailFreq * 0.7)) * (0.05 + effortRatio * 0.12);
   ctx.save();
   ctx.rotate(dorsalFlutter);
-  ctx.fillStyle = '#ea580c';
+  ctx.fillStyle = skin.spotColor || skin.wingColor || '#ea580c';
   ctx.strokeStyle = '#020617';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
@@ -4683,12 +4686,12 @@ function drawClownFish(
   ctx.ellipse(0, 0, 15, 10, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Orange Body Gradient
+  // Dynamic Skin Body Gradient
   const fishGrad = ctx.createLinearGradient(-14, 0, 14, 0);
-  fishGrad.addColorStop(0, '#ea580c');
-  fishGrad.addColorStop(0.3, '#f97316');
-  fishGrad.addColorStop(0.7, '#fb923c');
-  fishGrad.addColorStop(1, '#c2410c');
+  fishGrad.addColorStop(0, skin.spotColor || skin.wingColor || '#ea580c');
+  fishGrad.addColorStop(0.3, skin.bodyColor || '#f97316');
+  fishGrad.addColorStop(0.7, skin.accentColor || skin.bellyColor || '#fb923c');
+  fishGrad.addColorStop(1, skin.wingColor || '#c2410c');
   ctx.fillStyle = fishGrad;
   ctx.beginPath();
   ctx.ellipse(0, 0, 14, 9, 0, 0, Math.PI * 2);
@@ -4724,7 +4727,7 @@ function drawClownFish(
   ctx.save();
   ctx.translate(0, 2);
   ctx.rotate(finAngle);
-  ctx.fillStyle = '#f97316';
+  ctx.fillStyle = skin.bodyColor || '#f97316';
   ctx.strokeStyle = '#020617';
   ctx.lineWidth = 1;
   ctx.beginPath();

@@ -10,6 +10,7 @@ import { countTotalFragments } from '../utils/fragments';
 import { FishFragmentArchiveModal } from './FishFragmentArchiveModal';
 import { FishSelectorPanel } from './FishSelectorPanel';
 import { RunePowerModal } from './RunePowerModal';
+import { RuneBadgeIcon } from './RuneBadgeIcon';
 
 interface StatsModalProps {
   stats: GameStats;
@@ -275,13 +276,13 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               Rune Powers
             </span>
             <span className="text-[10px] font-bold text-amber-300">
-              Base: +{getBaseFragments(stats.totalScore, reefProgress, stats)} frags/reef
+              Base: +{getBaseFragments(stats.totalScore, reefProgress, stats, totalFragmentsByFish)} frags/reef
             </span>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 text-center">
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 text-center">
             {BADGES.map((b) => {
-              const unlocked = isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats);
-              const progress = getBadgeProgress(b.id, stats.totalScore, reefProgress, stats);
+              const unlocked = isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+              const progress = getBadgeProgress(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish);
               return (
                 <button
                   key={b.id}
@@ -292,7 +293,9 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                   }}
                   className={`p-1.5 rounded-xl border flex flex-col items-center justify-between transition cursor-pointer hover:scale-[1.03] active:scale-95 select-none min-h-[74px] hover:border-white/30 ${
                     unlocked
-                      ? b.id === 'atlantis_gate'
+                      ? b.id === 'tidesong'
+                        ? 'bg-teal-500/20 border-teal-400/60 text-teal-300 shadow-[0_0_12px_rgba(45,212,191,0.25)]'
+                        : b.id === 'atlantis_gate'
                         ? 'bg-indigo-500/20 border-indigo-400/60 text-indigo-300 shadow-[0_0_12px_rgba(129,140,248,0.25)]'
                         : b.id === 'gulf_stream'
                         ? 'bg-sky-500/20 border-sky-400/60 text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
@@ -307,7 +310,14 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                   }`}
                   title={`${b.name} (${progress.current}/${progress.target} ${progress.unit}) - Tap for details`}
                 >
-                  <div className="text-xl sm:text-2xl">{b.emoji}</div>
+                  <div className="flex items-center justify-center min-h-[26px]">
+                    <RuneBadgeIcon
+                      badgeId={b.id}
+                      emoji={b.emoji}
+                      size={b.id === 'tidesong' ? 24 : '1.35rem'}
+                      grayscale={!unlocked}
+                    />
+                  </div>
                   <div className="text-[9px] sm:text-[9.5px] font-bold mt-0.5 leading-tight text-center w-full break-words min-h-[22px] flex items-center justify-center">
                     {b.name}
                   </div>
@@ -316,7 +326,9 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         progress.isAchieved
-                          ? b.id === 'atlantis_gate'
+                          ? b.id === 'tidesong'
+                            ? 'bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.6)]'
+                            : b.id === 'atlantis_gate'
                             ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.6)]'
                             : b.id === 'gulf_stream'
                             ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.6)]'
@@ -426,12 +438,12 @@ export const StatsModal: React.FC<StatsModalProps> = ({
         badge={inspectingBadge}
         isUnlocked={
           inspectingBadge
-            ? isBadgeUnlocked(inspectingBadge.id, stats.totalScore, reefProgress, stats)
+            ? isBadgeUnlocked(inspectingBadge.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
             : false
         }
         progress={
           inspectingBadge
-            ? getBadgeProgress(inspectingBadge.id, stats.totalScore, reefProgress, stats)
+            ? getBadgeProgress(inspectingBadge.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
             : undefined
         }
         onClose={() => setInspectingBadge(null)}

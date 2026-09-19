@@ -184,7 +184,7 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
         const targetFish = activeInspectedFish;
         const activeFrags = totalFragmentsByFish[targetFish] || 0;
         const activeLevel = getFishLevel(activeFrags);
-        const baseFrags = getBaseFragments(calculatedTotalScore, reefProgress, stats);
+        const baseFrags = getBaseFragments(calculatedTotalScore, reefProgress, stats, totalFragmentsByFish);
         const power = getFishSpecialPower(targetFish, activeLevel, baseFrags);
         const activeFishObj = FISH_LIST.find((f) => f.id === targetFish);
         const activeFragmentsInLevel = activeFrags % 10;
@@ -225,11 +225,11 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
         );
       })()}
 
-      {/* Shared color selection UX: Octopus from start, Sting Ray (Gulf Stream), Puffer Fish (Atlantis Gate) */}
+      {/* Shared color selection UX: Octopus from start, Sting Ray (Gulf Stream), Puffer Fish (Atlantis Gate), Clown Fish (Tidesong) */}
       {activeInspectedFish && (() => {
         const activeFishObj = FISH_LIST.find((f) => f.id === activeInspectedFish);
-        const canChange = canFishChangeColor(activeInspectedFish, reefProgress, stats);
-        const unlockHint = getFishColorUnlockHint(activeInspectedFish, reefProgress, stats);
+        const canChange = canFishChangeColor(activeInspectedFish, reefProgress, stats, totalFragmentsByFish);
+        const unlockHint = getFishColorUnlockHint(activeInspectedFish, reefProgress, stats, totalFragmentsByFish);
         const fishSkin = fishSkins?.[activeInspectedFish] || selectedSkin || DEFAULT_FISH_SKINS[activeInspectedFish] || 'coral';
 
         return (

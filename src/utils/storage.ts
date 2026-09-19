@@ -48,6 +48,7 @@ const DEFAULT_STATS: GameStats = {
   bestReefsAchieved: 0,
   gulfStreamUnlocked: false,
   atlantisGateUnlocked: false,
+  tidesongUnlocked: false,
   currentFastReefsInRow: 0,
   bestFastReefsInRow: 0,
 };
@@ -112,6 +113,7 @@ export const DEFAULT_REEF_PROGRESS: ReefProgress = {
   clearedReefs: {},
   gulfStreamUnlocked: false,
   atlantisGateUnlocked: false,
+  tidesongUnlocked: false,
   currentFastReefsInRow: 0,
   bestFastReefsInRow: 0,
 };
@@ -129,6 +131,7 @@ export function resetReefProgress(): ReefProgress {
     clearedReefs: {},
     gulfStreamUnlocked: false,
     atlantisGateUnlocked: false,
+    tidesongUnlocked: false,
     currentFastReefsInRow: 0,
     bestFastReefsInRow: 0,
   };
@@ -234,6 +237,7 @@ export function completeReefLevel(
   nextReefUnlocked: boolean;
   atlantisGateUnlockedNow: boolean;
   gulfStreamUnlockedNow: boolean;
+  tidesongUnlockedNow: boolean;
   isUnder10s: boolean;
   currentFastStreak: number;
   bestFastStreak: number;
@@ -263,6 +267,20 @@ export function completeReefLevel(
     isFullRunWithoutDying &&
     !progress.atlantisGateUnlocked &&
     !curStats.atlantisGateUnlocked
+  );
+
+  const allFrags = loadReefFragments();
+  const totalFrags = getTotalFragmentsByFish(allFrags);
+  const allFishActivated =
+    (totalFrags.pufferfish || 0) >= 10 &&
+    (totalFrags.clownfish || 0) >= 10 &&
+    (totalFrags.singray || 0) >= 10 &&
+    (totalFrags.seahorse || 0) >= 10;
+
+  const tidesongUnlockedNow = Boolean(
+    allFishActivated &&
+    !progress.tidesongUnlocked &&
+    !curStats.tidesongUnlocked
   );
 
   const updatedCleared = {
@@ -295,6 +313,11 @@ export function completeReefLevel(
       curStats.atlantisGateUnlocked ||
       isFullRunWithoutDying
     ),
+    tidesongUnlocked: Boolean(
+      progress.tidesongUnlocked ||
+      curStats.tidesongUnlocked ||
+      allFishActivated
+    ),
     currentFastReefsInRow: currentFastStreak,
     bestFastReefsInRow: bestFastStreak,
   };
@@ -310,6 +333,7 @@ export function completeReefLevel(
       ...curStats,
       gulfStreamUnlocked: updated.gulfStreamUnlocked,
       atlantisGateUnlocked: updated.atlantisGateUnlocked,
+      tidesongUnlocked: updated.tidesongUnlocked,
       currentFastReefsInRow: currentFastStreak,
       bestFastReefsInRow: bestFastStreak,
     };
@@ -324,6 +348,7 @@ export function completeReefLevel(
     nextReefUnlocked,
     atlantisGateUnlockedNow,
     gulfStreamUnlockedNow,
+    tidesongUnlockedNow,
     isUnder10s,
     currentFastStreak,
     bestFastStreak,

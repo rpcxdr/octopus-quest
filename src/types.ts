@@ -86,6 +86,7 @@ export interface ReefProgress {
   clearedReefs: Record<number, { cleared: boolean; bestFlaps?: number; clearedAt?: string }>;
   gulfStreamUnlocked?: boolean;
   atlantisGateUnlocked?: boolean;
+  tidesongUnlocked?: boolean;
   currentFastReefsInRow?: number;
   bestFastReefsInRow?: number;
 }
@@ -133,11 +134,12 @@ export interface GameStats {
   dateSet?: string;
   gulfStreamUnlocked?: boolean;
   atlantisGateUnlocked?: boolean;
+  tidesongUnlocked?: boolean;
   currentFastReefsInRow?: number;
   bestFastReefsInRow?: number;
 }
 
-export type BadgeId = 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate';
+export type BadgeId = 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate' | 'tidesong';
 
 export interface GameBadge {
   id: BadgeId;
@@ -149,7 +151,7 @@ export interface GameBadge {
   unlocked: boolean;
 }
 
-export type MedalType = 'none' | 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate' | 'bronze' | 'silver' | 'gold' | 'platinum';
+export type MedalType = 'none' | 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate' | 'tidesong' | 'bronze' | 'silver' | 'gold' | 'platinum';
 
 export interface PhysicsConfig {
   gravity: number;        // pixels / sec^2
