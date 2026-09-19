@@ -26,6 +26,7 @@ export const StreakStatsBar: React.FC<StreakStatsBarProps> = ({
   className = '',
 }) => {
   const isUnder10s = timeSeconds !== undefined && timeSeconds <= 10.05 && !isGameOver;
+  const showTime = !isGameOver && timeSeconds !== undefined;
   const bestScore = Math.max(highScore, streak);
 
   const streakTooltip = isGameOver
@@ -37,7 +38,7 @@ export const StreakStatsBar: React.FC<StreakStatsBarProps> = ({
     : `Survival Streak: ${streak} columns (${reefsClearedInRun ?? 1} reefs cleared in run)`;
 
   const timeTooltip = isUnder10s
-    ? `Time: ${timeSeconds.toFixed(1)}s (Fast Reef #${currentFastStreak ?? 1}/10 for Gulf Stream)`
+    ? `Time: ${timeSeconds?.toFixed(1)}s (Fast Reef #${currentFastStreak ?? 1}/10 for Gulf Stream)`
     : timeSeconds !== undefined
     ? `Time: ${timeSeconds.toFixed(1)}s`
     : undefined;
@@ -45,7 +46,9 @@ export const StreakStatsBar: React.FC<StreakStatsBarProps> = ({
   return (
     <div
       id={id}
-      className={`w-full mb-3 px-3 py-1.5 bg-slate-950/70 border border-cyan-500/30 rounded-2xl flex items-center justify-between gap-1.5 sm:gap-2 text-xs backdrop-blur-md shadow-md relative z-10 ${className}`}
+      className={`w-full mb-3 px-3 py-1.5 bg-slate-950/70 border border-cyan-500/30 rounded-2xl flex items-center ${
+        showTime ? 'justify-between gap-1.5 sm:gap-2' : 'justify-center gap-6 sm:gap-8'
+      } text-xs backdrop-blur-md shadow-md relative z-10 ${className}`}
     >
       {/* Survival Streak */}
       <div
@@ -81,8 +84,8 @@ export const StreakStatsBar: React.FC<StreakStatsBarProps> = ({
         </span>
       </div>
 
-      {/* Time Score */}
-      {timeSeconds !== undefined && (
+      {/* Time Score (omitted on Game Over) */}
+      {showTime && timeSeconds !== undefined && (
         <>
           <div className="w-px h-3 bg-white/15 shrink-0" />
           <div

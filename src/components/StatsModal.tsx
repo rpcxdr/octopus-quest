@@ -3,13 +3,13 @@ import { motion } from 'motion/react';
 import { Trophy, Award, Flame, Zap, Trash2, X, Check, ChevronRight, ChevronDown, Sparkles, Home, Compass } from 'lucide-react';
 import { AllReefFragments, BadgeId, BirdSkin, FishType, GameStats, ReefProgress } from '../types';
 import { getBestReefScore } from '../utils/fish';
-import { BADGES, isBadgeUnlocked, getBaseFragments, getBadgeProgress } from '../utils/badges';
+import { BADGES, isBadgeUnlocked, getBaseFragments, getBadgeProgress, BadgeDefinition } from '../utils/badges';
 import { TOTAL_REEF_LEVELS } from '../utils/reef';
 import { getReefLevelStyle } from '../utils/backgroundAesthetics';
 import { countTotalFragments } from '../utils/fragments';
 import { FishFragmentArchiveModal } from './FishFragmentArchiveModal';
 import { FishSelectorPanel } from './FishSelectorPanel';
-import { RuneDetailsPanel } from './RuneDetailsPanel';
+import { RunePowerModal } from './RunePowerModal';
 
 interface StatsModalProps {
   stats: GameStats;
@@ -43,19 +43,21 @@ export const StatsModal: React.FC<StatsModalProps> = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showFragmentModal, setShowFragmentModal] = useState(false);
   const [isDepthScoreOpen, setIsDepthScoreOpen] = useState(false);
-  const [selectedBadgeId, setSelectedBadgeId] = useState<BadgeId | null>(null);
+  const [inspectingBadge, setInspectingBadge] = useState<BadgeDefinition | null>(null);
   const [inspectedFish, setInspectedFish] = useState<FishType | null>(null);
   const bestReefs = getBestReefScore(stats, reefProgress);
   const unlockedReefCount = reefProgress?.unlockedReef ?? 1;
   const totalFragmentsCount = countTotalFragments(totalFragmentsByFish);
 
-  // Keyboard shortcut: Spacebar (or Escape) closes the stats screen
+  // Keyboard shortcut: Spacebar (or Escape) closes modal popups or the stats screen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.key === ' ' || e.code === 'Escape' || e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        if (showFragmentModal) {
+        if (inspectingBadge) {
+          setInspectingBadge(null);
+        } else if (showFragmentModal) {
           setShowFragmentModal(false);
         } else {
           onClose();
@@ -67,7 +69,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [onClose, showFragmentModal]);
+  }, [onClose, showFragmentModal, inspectingBadge]);
 
   return (
     <div id="stats-modal" className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl">
@@ -110,7 +112,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               setIsDepthScoreOpen((prev) => {
                 const next = !prev;
                 if (next) {
-                  setSelectedBadgeId(null);
+                  setInspectingBadge(null);
                   setInspectedFish(null);
                 }
                 return next;
@@ -280,27 +282,15 @@ export const StatsModal: React.FC<StatsModalProps> = ({
             {BADGES.map((b) => {
               const unlocked = isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats);
               const progress = getBadgeProgress(b.id, stats.totalScore, reefProgress, stats);
-              const isSelected = selectedBadgeId === b.id;
               return (
                 <button
                   key={b.id}
                   id={`stat-badge-${b.id}`}
                   type="button"
                   onClick={() => {
-                    setSelectedBadgeId((prev) => {
-                      const next = prev === b.id ? null : b.id;
-                      if (next !== null) {
-                        setInspectedFish(null);
-                        setIsDepthScoreOpen(false);
-                      }
-                      return next;
-                    });
+                    setInspectingBadge(b);
                   }}
-                  className={`p-1.5 rounded-xl border flex flex-col items-center justify-between transition cursor-pointer active:scale-95 select-none min-h-[74px] ${
-                    isSelected
-                      ? 'ring-2 ring-cyan-400 border-cyan-400 scale-[1.03]'
-                      : 'hover:border-white/20'
-                  } ${
+                  className={`p-1.5 rounded-xl border flex flex-col items-center justify-between transition cursor-pointer hover:scale-[1.03] active:scale-95 select-none min-h-[74px] hover:border-white/30 ${
                     unlocked
                       ? b.id === 'atlantis_gate'
                         ? 'bg-indigo-500/20 border-indigo-400/60 text-indigo-300 shadow-[0_0_12px_rgba(129,140,248,0.25)]'
@@ -315,7 +305,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                         : 'bg-amber-500/15 border-amber-500/50 text-amber-300'
                       : 'bg-white/5 border-white/5 opacity-40 text-slate-500'
                   }`}
-                  title={`${b.name} (${progress.current}/${progress.target} ${progress.unit})`}
+                  title={`${b.name} (${progress.current}/${progress.target} ${progress.unit}) - Tap for details`}
                 >
                   <div className="text-xl sm:text-2xl">{b.emoji}</div>
                   <div className="text-[9px] sm:text-[9.5px] font-bold mt-0.5 leading-tight text-center w-full break-words min-h-[22px] flex items-center justify-center">
@@ -340,26 +330,6 @@ export const StatsModal: React.FC<StatsModalProps> = ({
               );
             })}
           </div>
-
-          {/* Selected Badge Goal & Rune Power details */}
-          {(() => {
-            const selectedBadge = BADGES.find((b) => b.id === selectedBadgeId);
-            if (!selectedBadge) {
-              return null;
-            }
-            const selectedProgress = getBadgeProgress(
-              selectedBadge.id,
-              stats.totalScore,
-              reefProgress,
-              stats
-            );
-            return (
-              <RuneDetailsPanel
-                badge={selectedBadge}
-                progress={selectedProgress}
-              />
-            );
-          })()}
         </div>
 
         {/* Fish Character Levels & Unlocks - Reusable FishSelectorPanel */}
@@ -368,7 +338,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           selectedFish={selectedFish}
           onSelectFish={(fish) => {
             onSelectFish?.(fish);
-            setSelectedBadgeId(null);
+            setInspectingBadge(null);
             setIsDepthScoreOpen(false);
           }}
           totalFragmentsByFish={totalFragmentsByFish}
@@ -384,7 +354,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           onInspectedFishChange={(fish) => {
             setInspectedFish(fish);
             if (fish !== null) {
-              setSelectedBadgeId(null);
+              setInspectingBadge(null);
               setIsDepthScoreOpen(false);
             }
           }}
@@ -448,6 +418,23 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           onSelectReef?.(reefLevel);
           onClose();
         }}
+      />
+
+      {/* Rune Power Modal Popup */}
+      <RunePowerModal
+        isOpen={inspectingBadge !== null}
+        badge={inspectingBadge}
+        isUnlocked={
+          inspectingBadge
+            ? isBadgeUnlocked(inspectingBadge.id, stats.totalScore, reefProgress, stats)
+            : false
+        }
+        progress={
+          inspectingBadge
+            ? getBadgeProgress(inspectingBadge.id, stats.totalScore, reefProgress, stats)
+            : undefined
+        }
+        onClose={() => setInspectingBadge(null)}
       />
     </div>
   );

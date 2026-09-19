@@ -7,6 +7,8 @@ import { getReefZoneName } from '../utils/reef';
 import { ReefClearedRecordColumns } from './RecordColumnPodView';
 import { REEF_FISH_ORDER } from './ReefFragmentRecordList';
 import { StreakStatsBar } from './StreakStatsBar';
+import { BadgeDefinition } from '../utils/badges';
+import { BadgeAchievementCelebration } from './BadgeAchievementCelebration';
 
 interface ScoreBoardModalProps {
   score?: number;
@@ -24,6 +26,7 @@ interface ScoreBoardModalProps {
   reefMaxFragments?: FishFragmentCounts;
   totalFragmentsByFish?: Record<FishType, number>;
   priorTotalFragmentsByFish?: Record<FishType, number>;
+  newlyUnlockedBadges?: BadgeDefinition[];
   onRestart: () => void;
   onOpenStats?: () => void;
   onGoHome: () => void;
@@ -41,6 +44,7 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
   reefMaxFragments,
   totalFragmentsByFish,
   priorTotalFragmentsByFish,
+  newlyUnlockedBadges,
   onRestart,
   onGoHome,
 }) => {
@@ -97,7 +101,7 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
           Reef {reefLevel}: {getReefZoneName(reefLevel)}
         </div>
 
-        {/* Reusable Merged Single-Line Stats: Survival Streak, Best Streak & Time Score */}
+        {/* Reusable Merged Single-Line Stats: Survival Streak & Best Streak (Time omitted on Game Over) */}
         <StreakStatsBar
           id="game-over-stats-line"
           streak={score ?? 0}
@@ -105,13 +109,12 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
           reefColumn={reefColumn}
           highScore={highScore}
           isNewHighScore={isNewHighScore}
-          timeSeconds={timeSeconds}
           isGameOver={true}
         />
 
         {/* Reused Fragment Records Summary Layout with Lost Achievements Overlay (only if fragments were collected) */}
         {hasCollectedFragments && (
-          <div className="w-full relative my-1 overflow-visible">
+          <div className="w-full relative my-1 overflow-visible z-30">
             <ReefClearedRecordColumns
               attemptFragments={attemptFragments}
               reefMaxFragments={reefMaxFragments}
@@ -121,8 +124,8 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
             />
 
             {/* Emotionally impactful 0.5s animation overlay showing you have lost all new records */}
-            {hasNewRecords && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none overflow-hidden rounded-2xl">
+            {(hasNewRecords || hasCollectedFragments) && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none overflow-hidden rounded-2xl">
                 {/* Crimson flash pulse across the achievements container */}
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -162,7 +165,7 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
                     times: [0, 0.72, 1],
                     ease: [0.16, 1, 0.3, 1],
                   }}
-                  className="relative z-40 bg-slate-950/95 border-2 border-rose-500 rounded-2xl px-6 py-3.5 sm:px-7 sm:py-4 shadow-[0_0_36px_rgba(244,63,94,0.85)] flex items-center justify-center text-center ring-2 ring-rose-500/30"
+                  className="relative z-50 bg-slate-950/95 border-2 border-rose-500 rounded-2xl px-6 py-3.5 sm:px-7 sm:py-4 shadow-[0_0_36px_rgba(244,63,94,0.85)] flex items-center justify-center text-center ring-2 ring-rose-500/30"
                 >
                   <div className="flex items-center gap-2.5 text-rose-400 font-game font-black text-lg sm:text-xl uppercase tracking-widest drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]">
                     <FishSkeletonIcon className="w-6 h-6 text-rose-400 animate-pulse shrink-0" strokeWidth={2.25} />
@@ -171,6 +174,13 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
                 </motion.div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Big Achievement Celebration Animation (if a new badge was unlocked on this level) - Rewards Lost sits on top */}
+        {newlyUnlockedBadges && newlyUnlockedBadges.length > 0 && (
+          <div className="w-full relative z-10 my-2">
+            <BadgeAchievementCelebration badges={newlyUnlockedBadges} isGameOver={true} />
           </div>
         )}
 

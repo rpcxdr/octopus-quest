@@ -16,6 +16,7 @@ import {
   FloatingFragment,
   FishFragmentCounts,
   AllReefFragments,
+  BadgeId,
 } from '../types';
 import {
   BIRD_SKINS,
@@ -98,7 +99,7 @@ import {
   FragmentRecordJuiceState,
 } from '../utils/fragmentRecordJuice';
 import { drawReefIntroTitle } from '../utils/reefIntroRenderer';
-import { getBaseFragments } from '../utils/badges';
+import { getBaseFragments, BADGES, BadgeDefinition, isBadgeUnlocked } from '../utils/badges';
 import { StartScreenOverlay } from './StartScreenOverlay';
 import { ScoreBoardModal } from './ScoreBoardModal';
 import { StatsModal } from './StatsModal';
@@ -183,6 +184,21 @@ export const FlappyGame: React.FC = () => {
   const initialProgress = loadReefProgress();
   const initialBaseFragments = getBaseFragments(initialStats.totalScore, initialProgress, initialStats);
   const initialFragmentCount = initialFish === 'octopus' ? initialBaseFragments + initialOctopusLevel : initialBaseFragments;
+
+  // Track badges unlocked before level starts to detect new achievements earned during the run
+  const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<BadgeDefinition[]>([]);
+  const badgesBeforeLevelRef = useRef<BadgeId[]>(
+    BADGES.filter((b) => isBadgeUnlocked(b.id, initialStats.totalScore, initialProgress, initialStats)).map((b) => b.id)
+  );
+
+  // Keep badgesBeforeLevelRef in sync while player is idle on the home screen
+  useEffect(() => {
+    if (gameState === 'IDLE') {
+      badgesBeforeLevelRef.current = BADGES.filter((b) =>
+        isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats)
+      ).map((b) => b.id);
+    }
+  }, [gameState, stats.totalScore, reefProgress, stats]);
 
   const [abilitySnapshot, setAbilitySnapshot] = useState<FishAbilityState>(() =>
     FishBehaviorFactory.create(initialFish, initialFishLevel).getAbilityState()
@@ -462,6 +478,10 @@ export const FlappyGame: React.FC = () => {
 
     const safeReef = updated.currentReef;
     s.currentReef = safeReef;
+    badgesBeforeLevelRef.current = BADGES.filter((b) =>
+      isBadgeUnlocked(b.id, stats.totalScore, updated, stats)
+    ).map((b) => b.id);
+    setNewlyUnlockedBadges([]);
     const config = getConfig(s.difficulty, safeReef);
     s.reefColumns = generateReefColumns(safeReef, config, s.difficulty);
     s.columnsSpawned = 0;
@@ -504,6 +524,10 @@ export const FlappyGame: React.FC = () => {
     setIsNewHighScore(false);
     setIsPaused(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
+    badgesBeforeLevelRef.current = BADGES.filter((b) =>
+      isBadgeUnlocked(b.id, stats.totalScore, updated, stats)
+    ).map((b) => b.id);
+    setNewlyUnlockedBadges([]);
     setGameState('IDLE');
   }, [allReefFragments, stats.totalScore]);
 
@@ -521,6 +545,11 @@ export const FlappyGame: React.FC = () => {
     // Keep cumulative s.score and s.runTotalFlaps intact!
     const safeNext = updated.currentReef;
     s.currentReef = safeNext;
+    const currentStats = loadGameStats();
+    badgesBeforeLevelRef.current = BADGES.filter((b) =>
+      isBadgeUnlocked(b.id, currentStats.totalScore, updated, currentStats)
+    ).map((b) => b.id);
+    setNewlyUnlockedBadges([]);
     const config = getConfig(s.difficulty, safeNext);
     s.reefColumns = generateReefColumns(safeNext, config, s.difficulty);
     s.columnsSpawned = 0;
@@ -536,7 +565,7 @@ export const FlappyGame: React.FC = () => {
 
     const frags = getTotalFragmentsByFish(allReefFragments);
     const octLevel = getFishLevel(frags['octopus'] || 0);
-    const baseFrags = getBaseFragments(stats.totalScore + s.score, updated, stats);
+    const baseFrags = getBaseFragments(currentStats.totalScore, updated, currentStats);
     const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
     s.floatingFragments = generateReefFloatingFragments(
       config.virtualHeight,
@@ -599,7 +628,7 @@ export const FlappyGame: React.FC = () => {
       if (s.floatingFragments === undefined) {
         const frags = getTotalFragmentsByFish(allReefFragments);
         const octLevel = getFishLevel(frags['octopus'] || 0);
-        const baseFrags = getBaseFragments(stats.totalScore + s.score, reefProgress, stats);
+        const baseFrags = getBaseFragments(stats.totalScore, reefProgress, stats);
         const fragCount = s.selectedFish === 'octopus' ? baseFrags + octLevel : baseFrags;
         s.floatingFragments = generateReefFloatingFragments(
           config.virtualHeight,
@@ -610,6 +639,10 @@ export const FlappyGame: React.FC = () => {
         );
       }
       // Transition from start/ready to playing
+      badgesBeforeLevelRef.current = BADGES.filter((b) =>
+        isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats)
+      ).map((b) => b.id);
+      setNewlyUnlockedBadges([]);
       s.gameState = 'PLAYING';
       setGameState('PLAYING');
       setNewlyUnlockedFish(null);
@@ -810,6 +843,10 @@ export const FlappyGame: React.FC = () => {
     setClearedGulfStream(false);
     setLastClearTime(undefined);
     setCurrentFastStreak(0);
+    badgesBeforeLevelRef.current = BADGES.filter((b) =>
+      isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats)
+    ).map((b) => b.id);
+    setNewlyUnlockedBadges([]);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('PLAYING');
   }, [allReefFragments, stats.totalScore, reefProgress]);
@@ -1211,6 +1248,20 @@ export const FlappyGame: React.FC = () => {
                   setNewlyUnlockedFish(null);
                 }
 
+                // Check if any new badges were unlocked during this level run
+                const priorBadges = badgesBeforeLevelRef.current;
+                const earnedBadges = BADGES.filter((b) => {
+                  const unlockedNow =
+                    isBadgeUnlocked(b.id, updatedStats.totalScore, updatedReefProgress, updatedStats) ||
+                    (b.id === 'atlantis_gate' && atlantisGateUnlockedNow) ||
+                    (b.id === 'gulf_stream' && gulfStreamUnlockedNow);
+                  return unlockedNow && !priorBadges.includes(b.id);
+                });
+                setNewlyUnlockedBadges(earnedBadges);
+                if (earnedBadges.length > 0) {
+                  sound.playFishLevelUpSplash();
+                }
+
                 // Celebration particles
                 s.particles.push(...createImpactParticles(s.bird.x, s.bird.y));
                 break;
@@ -1266,6 +1317,17 @@ export const FlappyGame: React.FC = () => {
               setClearedGulfStream(false);
               setStats(updatedStats);
               setIsNewHighScore(isNewHigh);
+
+              // Check if any new badges were unlocked before dying on this level run (e.g. total score milestone)
+              const priorBadges = badgesBeforeLevelRef.current;
+              const earnedBadges = BADGES.filter((b) => {
+                const unlockedNow = isBadgeUnlocked(b.id, updatedStats.totalScore, reefProgress, updatedStats);
+                return unlockedNow && !priorBadges.includes(b.id);
+              });
+              setNewlyUnlockedBadges(earnedBadges);
+              if (earnedBadges.length > 0) {
+                sound.playFishLevelUpSplash();
+              }
 
               if (isNewHigh && s.score > 0) {
                 sound.playHighScore();
@@ -1769,6 +1831,7 @@ export const FlappyGame: React.FC = () => {
           reefMaxFragments={getReefMaxFragments(stateRef.current.currentReef || reefProgress.currentReef)}
           totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
           priorTotalFragmentsByFish={priorTotalFragments || undefined}
+          newlyUnlockedBadges={newlyUnlockedBadges}
           onRestart={handleReplayLevel}
           onOpenStats={() => setShowStatsModal(true)}
           onGoHome={handleRestart}
@@ -1801,6 +1864,7 @@ export const FlappyGame: React.FC = () => {
           isGulfStreamUnlocked={clearedGulfStream}
           clearTimeSeconds={lastClearTime}
           currentFastStreak={currentFastStreak}
+          newlyUnlockedBadges={newlyUnlockedBadges}
           onEquipFish={handleSelectFish}
           onNextReef={handleContinueRunToNextReef}
           onReplayReef={handleReplayLevel}

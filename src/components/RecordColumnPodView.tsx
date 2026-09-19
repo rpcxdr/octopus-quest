@@ -209,14 +209,7 @@ export const ReefClearedRecordColumns: React.FC<ReefClearedRecordColumnsProps> =
   });
 
   if (collectedFish.length === 0) {
-    if (isGameOver) {
-      return null;
-    }
-    return (
-      <div className="w-full py-2 mb-3 text-center">
-        <span className="text-xs text-slate-400 font-game">No fish fragments collected this swim</span>
-      </div>
-    );
+    return null;
   }
 
   return (
