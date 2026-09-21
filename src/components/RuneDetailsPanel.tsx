@@ -1,5 +1,6 @@
 import React from 'react';
 import { BadgeDefinition, BadgeProgress } from '../utils/badges';
+import { RuneBadgeIcon } from './RuneBadgeIcon';
 
 export interface RuneDetailsPanelProps {
   badge: BadgeDefinition;
@@ -27,7 +28,12 @@ export const RuneDetailsPanel: React.FC<RuneDetailsPanelProps> = ({
       {/* Header: Emoji, Name & Status pill */}
       <div className="flex items-center justify-between pb-1.5 border-b border-white/10 mb-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-lg shrink-0">{badge.emoji}</span>
+          <RuneBadgeIcon
+            badgeId={badge.id}
+            emoji={badge.emoji}
+            size={badge.id === 'tidesong' ? 24 : '1.15rem'}
+            className="shrink-0"
+          />
           <span className="text-xs font-black uppercase tracking-wider text-cyan-300 font-game truncate">
             {badge.name}
           </span>

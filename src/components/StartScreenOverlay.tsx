@@ -16,6 +16,7 @@ import { getNextBadgeGoal, getBadgeVisual } from '../utils/badges';
 import { FishSelectorPanel } from './FishSelectorPanel';
 import { RuneDetailsPanel } from './RuneDetailsPanel';
 import { FishBadgeIcon } from './FishBadgeIcon';
+import { RuneBadgeIcon } from './RuneBadgeIcon';
 
 interface StartScreenOverlayProps {
   stats: GameStats;
@@ -56,9 +57,10 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
 }) => {
   const [lockedHint, setLockedHint] = useState<string | null>(null);
   const [inspectedFish, setInspectedFish] = useState<FishType | null>(null);
+  const activeInspectedFish = inspectedFish === selectedFish ? inspectedFish : null;
   const [showRuneDetails, setShowRuneDetails] = useState(false);
   const { currentReef, unlockedReef, clearedReefs } = reefProgress;
-  const nextRuneGoal = getNextBadgeGoal(stats.totalScore, reefProgress, stats);
+  const nextRuneGoal = getNextBadgeGoal(stats.totalScore, reefProgress, stats, totalFragmentsByFish);
   const runeVisual = nextRuneGoal ? getBadgeVisual(nextRuneGoal.badge.id) : null;
 
   useEffect(() => {
@@ -171,7 +173,7 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
             className={`w-full rounded-2xl border-2 ${runeVisual.border} ${runeVisual.bg} ${runeVisual.glow} relative overflow-hidden ${
               showRuneDetails ? 'p-2.5 sm:p-3' : 'py-3 sm:py-3.5 px-4'
             } flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none hover:scale-[1.01] active:scale-[0.99] shadow-2xl backdrop-blur-xl`}
-            title={showRuneDetails ? "Tap to return to Goal view" : `Next Rune Goal: ${nextRuneGoal.badge.name} - Tap to view details`}
+            title={showRuneDetails ? "Tap to return to Quest view" : `Next Rune Quest: ${nextRuneGoal.badge.name} - Tap to view details`}
           >
             {showRuneDetails ? (
               <RuneDetailsPanel
@@ -182,15 +184,19 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
               />
             ) : (
               <>
-                {/* Giant rune emoji visual in background */}
+                {/* Giant rune emoji / school visual in background */}
                 <div
                   className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-20 sm:opacity-25 text-7xl sm:text-8xl scale-110 drop-shadow-lg"
                   aria-hidden="true"
                 >
-                  {nextRuneGoal.badge.emoji}
+                  <RuneBadgeIcon
+                    badgeId={nextRuneGoal.badge.id}
+                    emoji={nextRuneGoal.badge.emoji}
+                    size={nextRuneGoal.badge.id === 'tidesong' ? 100 : '5rem'}
+                  />
                 </div>
 
-                {/* Overlaid centered text: "Next" newline "Rune" newline "Goal:" newline "[Rune name]" */}
+                {/* Overlaid centered text: "Next" newline "Rune" newline "Quest:" newline "[Rune name]" */}
                 <div className="relative z-10 flex flex-col items-center justify-center text-center leading-tight w-full">
                   <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.22em] text-cyan-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
                     Next
@@ -199,7 +205,7 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
                     Rune
                   </span>
                   <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.22em] text-cyan-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-                    Goal:
+                    Quest:
                   </span>
                   <span
                     className={`text-2xl sm:text-3xl font-black font-game uppercase tracking-wider ${runeVisual.color} leading-none mt-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]`}
@@ -229,14 +235,14 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
         ) : (
           /* Invisible placeholder maintaining identical layout frame spacing when all badges are achieved */
           <div
-            id="home-next-rune-goal-placeholder"
+            id="home-next-rune-quest-placeholder"
             className="w-full rounded-2xl border-2 border-transparent py-3 sm:py-3.5 px-4 flex flex-col items-center justify-center invisible pointer-events-none select-none"
             aria-hidden="true"
           >
             <div className="flex flex-col items-center justify-center text-center leading-tight w-full">
               <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.22em]">Next</span>
               <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.22em]">Rune</span>
-              <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.22em]">Goal:</span>
+              <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.22em]">Quest:</span>
               <span className="text-2xl sm:text-3xl font-black font-game uppercase tracking-wider leading-none mt-1">Placeholder</span>
               <div className="w-full h-1.5 mt-2.5 max-w-[200px]" />
             </div>
@@ -428,14 +434,14 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
           onSelectSkin={onSelectSkin}
           stats={stats}
           reefProgress={reefProgress}
-          inspectedFish={inspectedFish}
+          inspectedFish={activeInspectedFish}
           onInspectedFishChange={setInspectedFish}
         />
 
       {/* Transparent spacer under fish selector panel to stabilize layout whether details are open or closed */}
       <div
         className={`w-full pointer-events-none transition-all duration-200 ${
-          inspectedFish ? 'h-0' : 'h-[86px]'
+          activeInspectedFish ? 'h-0' : 'h-[86px]'
         }`}
         aria-hidden="true"
       />

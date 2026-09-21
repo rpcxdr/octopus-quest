@@ -7,6 +7,7 @@ import { BADGES, isBadgeUnlocked, getBaseFragments, getBadgeProgress, BadgeDefin
 import { TOTAL_REEF_LEVELS } from '../utils/reef';
 import { getReefLevelStyle } from '../utils/backgroundAesthetics';
 import { countTotalFragments } from '../utils/fragments';
+import { DEFAULT_FISH_SKINS } from '../utils/physics';
 import { FishFragmentArchiveModal } from './FishFragmentArchiveModal';
 import { FishSelectorPanel } from './FishSelectorPanel';
 import { RunePowerModal } from './RunePowerModal';
@@ -32,8 +33,6 @@ export const StatsModal: React.FC<StatsModalProps> = ({
   reefProgress,
   allReefFragments = {},
   totalFragmentsByFish = {},
-  selectedFish,
-  onSelectFish,
   selectedSkin,
   fishSkins,
   onSelectSkin,
@@ -45,7 +44,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
   const [showFragmentModal, setShowFragmentModal] = useState(false);
   const [isDepthScoreOpen, setIsDepthScoreOpen] = useState(false);
   const [inspectingBadge, setInspectingBadge] = useState<BadgeDefinition | null>(null);
-  const [inspectedFish, setInspectedFish] = useState<FishType | null>(null);
+  const [statsSelectedFish, setStatsSelectedFish] = useState<FishType | null>(null);
   const bestReefs = getBestReefScore(stats, reefProgress);
   const unlockedReefCount = reefProgress?.unlockedReef ?? 1;
   const totalFragmentsCount = countTotalFragments(totalFragmentsByFish);
@@ -114,7 +113,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                 const next = !prev;
                 if (next) {
                   setInspectingBadge(null);
-                  setInspectedFish(null);
+                  setStatsSelectedFish(null);
                 }
                 return next;
               });
@@ -347,14 +346,9 @@ export const StatsModal: React.FC<StatsModalProps> = ({
         {/* Fish Character Levels & Unlocks - Reusable FishSelectorPanel */}
         <FishSelectorPanel
           id="stats-fish-selector-panel"
-          selectedFish={selectedFish}
-          onSelectFish={(fish) => {
-            onSelectFish?.(fish);
-            setInspectingBadge(null);
-            setIsDepthScoreOpen(false);
-          }}
+          selectedFish={statsSelectedFish}
           totalFragmentsByFish={totalFragmentsByFish}
-          selectedSkin={selectedSkin}
+          selectedSkin={statsSelectedFish ? (fishSkins?.[statsSelectedFish] || DEFAULT_FISH_SKINS[statsSelectedFish] || 'coral') : selectedSkin}
           fishSkins={fishSkins}
           onSelectSkin={onSelectSkin}
           stats={stats}
@@ -362,9 +356,9 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           showHeader={true}
           headerTitle="Fish Levels & Unlocks"
           className="mb-4 bg-slate-900/70"
-          inspectedFish={inspectedFish}
+          inspectedFish={statsSelectedFish}
           onInspectedFishChange={(fish) => {
-            setInspectedFish(fish);
+            setStatsSelectedFish(fish);
             if (fish !== null) {
               setInspectingBadge(null);
               setIsDepthScoreOpen(false);

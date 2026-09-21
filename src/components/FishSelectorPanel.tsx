@@ -10,9 +10,9 @@ import { FishColorSelector } from './FishColorSelector';
 
 export interface FishSelectorPanelProps {
   id?: string;
-  selectedFish?: FishType;
+  selectedFish?: FishType | null;
   onSelectFish?: (fish: FishType) => void;
-  totalFragmentsByFish?: Record<FishType, number>;
+  totalFragmentsByFish?: Partial<Record<FishType, number>>;
   selectedSkin?: BirdSkin;
   fishSkins?: Partial<Record<FishType, BirdSkin>>;
   onSelectSkin?: (skin: BirdSkin, fishType?: FishType) => void;
@@ -85,8 +85,8 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
           const frags = totalFragmentsByFish[fish.id] || 0;
           const fishLevel = getFishLevel(frags);
           const unlocked = isFishUnlocked(fish.id, fishLevel);
-          const isSelected = selectedFish === fish.id;
-          const isInspected = activeInspectedFish === fish.id;
+          const isSelected = Boolean(selectedFish && selectedFish === fish.id);
+          const isInspected = Boolean(activeInspectedFish && activeInspectedFish === fish.id);
           const fragmentsInLevel = frags % 10;
 
           return (

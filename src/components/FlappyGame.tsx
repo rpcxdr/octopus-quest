@@ -45,7 +45,9 @@ import {
   drawBird,
   drawParticles,
   drawInGameScore,
+  BackgroundTransitionProgress,
 } from '../utils/renderer';
+import { getAestheticForReef } from '../utils/backgroundAesthetics';
 import { sound } from '../utils/audio';
 import {
   loadGameStats,
@@ -254,6 +256,14 @@ export const FlappyGame: React.FC = () => {
     recordJuiceState: FragmentRecordJuiceState;
     reefClearedTime: number;
     virtualHeight: number;
+    bgTransition: {
+      fromReef: number;
+      toReef: number;
+      startTime: number;
+      duration: number;
+    } | null;
+    lastThemeReef: number;
+    lastThemeAestheticId: string;
   }>({
     gameState: 'IDLE',
     isPaused: false,
@@ -301,6 +311,9 @@ export const FlappyGame: React.FC = () => {
     pickupEffects: [],
     recordJuiceState: createRecordJuiceState(),
     reefClearedTime: 0,
+    bgTransition: null,
+    lastThemeReef: initialReef,
+    lastThemeAestheticId: getAestheticForReef(initialReef).id,
   });
 
   // Synchronize refs with state
@@ -544,8 +557,23 @@ export const FlappyGame: React.FC = () => {
     setPriorReefMaxFragments(null);
 
     // Keep cumulative s.score and s.runTotalFlaps intact!
+    const prevReef = s.currentReef;
     const safeNext = updated.currentReef;
     s.currentReef = safeNext;
+
+    // Trigger 0.5 second transition if background theme changes while continuing swim to next reef
+    const prevAesthetic = getAestheticForReef(prevReef);
+    const nextAesthetic = getAestheticForReef(safeNext);
+    if (prevAesthetic.id !== nextAesthetic.id) {
+      s.bgTransition = {
+        fromReef: prevReef,
+        toReef: safeNext,
+        startTime: performance.now(),
+        duration: 500, // 0.5s transition
+      };
+      s.lastThemeReef = safeNext;
+      s.lastThemeAestheticId = nextAesthetic.id;
+    }
     const currentStats = loadGameStats();
     badgesBeforeLevelRef.current = BADGES.filter((b) =>
       isBadgeUnlocked(b.id, currentStats.totalScore, updated, currentStats, totalFragmentsByFish)
@@ -1402,6 +1430,36 @@ export const FlappyGame: React.FC = () => {
         );
       }
 
+      // Check and update background theme transition (0.5s duration)
+      const currentAesthetic = getAestheticForReef(s.currentReef);
+      if (s.lastThemeAestheticId !== currentAesthetic.id) {
+        s.bgTransition = {
+          fromReef: s.lastThemeReef || (s.currentReef > 1 ? s.currentReef - 1 : 1),
+          toReef: s.currentReef,
+          startTime: time,
+          duration: 500, // 0.5s transition
+        };
+        s.lastThemeReef = s.currentReef;
+        s.lastThemeAestheticId = currentAesthetic.id;
+      }
+
+      let bgTransitionProgress: BackgroundTransitionProgress | null = null;
+      if (s.bgTransition) {
+        const elapsed = time - s.bgTransition.startTime;
+        if (elapsed >= s.bgTransition.duration) {
+          s.bgTransition = null;
+        } else if (elapsed >= 0) {
+          const raw = elapsed / s.bgTransition.duration;
+          // Hermite cubic smoothstep for smooth 0.5s cross-fade
+          const easeProgress = raw * raw * (3 - 2 * raw);
+          bgTransitionProgress = {
+            fromReef: s.bgTransition.fromReef,
+            toReef: s.bgTransition.toReef,
+            progress: easeProgress,
+          };
+        }
+      }
+
       // 2. RENDER STAGE
       // Hard reset canvas transform and alpha to guarantee pristine coordinate space
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1425,7 +1483,8 @@ export const FlappyGame: React.FC = () => {
           s.clouds,
           s.groundScroll,
           time,
-          s.currentReef
+          s.currentReef,
+          bgTransitionProgress
         );
 
         // Giant fish level gained juice (rendered in front of background, but behind column obstacles)
@@ -1451,7 +1510,8 @@ export const FlappyGame: React.FC = () => {
           config.groundHeight,
           s.groundScroll,
           time,
-          s.currentReef
+          s.currentReef,
+          bgTransitionProgress
         );
 
         // Floating Fish Fragments
@@ -1885,8 +1945,6 @@ export const FlappyGame: React.FC = () => {
           reefProgress={reefProgress}
           allReefFragments={allReefFragments}
           totalFragmentsByFish={getTotalFragmentsByFish()}
-          selectedFish={selectedFish}
-          onSelectFish={handleSelectFish}
           selectedSkin={fishSkins[selectedFish] || DEFAULT_FISH_SKINS[selectedFish] || selectedSkin || 'coral'}
           fishSkins={fishSkins}
           onSelectSkin={handleSelectFishSkin}

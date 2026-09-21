@@ -58,7 +58,7 @@ export type CandyColumnType = 0 | 1 | 2;
 /**
  * Deterministically chooses one of 3 visually unique candy types for each column
  * within a reef level, randomly changing from column to column based on the reef level seed:
- * 0: Chunks of Candy (stacked irregular candy chunks, cleaved facets, sugar dust seams, translucent confection bites)
+ * 0: Ammonite Swirl Candies (glossy coiled ammonite fossil swirl hard candies with colorful candy stripes)
  * 1: Rock Candy Crystals (clusters of prismatic quartz-like sugar crystals, jagged crystal points, facet reflections)
  * 2: Candy Cane (iconic diagonal spiral peppermint stripes on a translucent sugar-glass cane)
  */
@@ -103,7 +103,7 @@ export function getCandyTypeName(reefLevel: number, colNum?: number): string {
   const type = getCandyTypeForColumn(reefLevel, colNum);
   switch (type) {
     case 0:
-      return 'Candy Chunks';
+      return 'Ammonite Swirl Candies';
     case 1:
       return 'Rock Candy Crystals';
     case 2:

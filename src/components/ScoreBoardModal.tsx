@@ -93,7 +93,7 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
           id="game-over-title"
           className="relative z-10 text-3xl sm:text-4xl font-black font-game uppercase text-rose-400 tracking-wider mb-1 pt-1 drop-shadow-[0_2px_16px_rgba(244,63,94,0.45)]"
         >
-          Tangled in Kelp!
+          Swim again!
         </h2>
 
         {/* Reef Zone Name (with difficulty/speed text removed) */}

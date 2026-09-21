@@ -303,7 +303,7 @@ export function canFishChangeColor(
   fishType: FishType,
   reefProgress?: ReefProgress,
   stats?: GameStats,
-  totalFragmentsByFish?: Record<FishType, number>
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): boolean {
   switch (fishType) {
     case 'octopus':
@@ -326,7 +326,7 @@ export function getFishColorUnlockHint(
   fishType: FishType,
   reefProgress?: ReefProgress,
   stats?: GameStats,
-  totalFragmentsByFish?: Record<FishType, number>
+  totalFragmentsByFish?: Partial<Record<FishType, number>>
 ): string | null {
   if (canFishChangeColor(fishType, reefProgress, stats, totalFragmentsByFish)) {
     return null;

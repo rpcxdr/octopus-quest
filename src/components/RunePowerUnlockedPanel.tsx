@@ -116,8 +116,13 @@ export const RunePowerUnlockedPanel: React.FC<RunePowerUnlockedPanelProps> = ({
           <div className="w-full h-px bg-slate-700/50" />
 
           {/* Power Effect Description */}
-          <div className="text-xs sm:text-sm font-semibold text-slate-400 leading-snug">
-            {badge.effect}
+          <div className="flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+            <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 bg-slate-800 border border-slate-600 px-2 py-0.5 rounded-full font-game shrink-0">
+              Power
+            </span>
+            <span className="font-semibold text-slate-400 leading-snug">
+              {badge.effect}
+            </span>
           </div>
         </div>
       </div>
@@ -301,8 +306,13 @@ export const RunePowerUnlockedPanel: React.FC<RunePowerUnlockedPanelProps> = ({
         <div className="w-full h-px bg-amber-400/20" />
 
         {/* Power Effect Description */}
-        <div className="text-xs sm:text-sm font-bold text-amber-200 leading-snug">
-          {badge.effect}
+        <div className="flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+          <span className="text-[10px] uppercase font-black tracking-wider text-cyan-300 bg-cyan-950/90 border border-cyan-400/50 px-2 py-0.5 rounded-full font-game shrink-0">
+            Power
+          </span>
+          <span className="font-bold text-amber-200 leading-snug">
+            {badge.effect}
+          </span>
         </div>
       </motion.div>
     </motion.div>

@@ -6,7 +6,6 @@ import { getReefZoneName, TOTAL_REEF_LEVELS } from '../utils/reef';
 import { ReefClearedRecordColumns } from './RecordColumnPodView';
 import { StreakStatsBar } from './StreakStatsBar';
 import { BadgeDefinition } from '../utils/badges';
-import { BadgeAchievementCelebration } from './BadgeAchievementCelebration';
 
 interface ReefClearedModalProps {
   isOpen: boolean;
@@ -116,7 +115,7 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
       <div
         id="reef-cleared-backdrop"
         onClick={handleBackdropClick}
-        className={`fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 pointer-events-auto overflow-x-hidden ${
+        className={`fixed inset-0 z-50 bg-transparent backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 pointer-events-auto overflow-x-hidden ${
           canInteract ? 'cursor-pointer' : 'cursor-default'
         }`}
       >
