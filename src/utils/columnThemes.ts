@@ -2,20 +2,19 @@ import { BackgroundAesthetic } from './backgroundAesthetics';
 
 export type ColumnThemeType =
   | 'original_kelp'
-  | 'block'
-  | 'minecraft'
+  | 'blockWorld'
   | 'candy'
   | 'tangled_kelp'
-  | 'matrix'
+  | 'cyberGrid'
   | 'lava'
   | 'sunken_atlantis';
 
 export const COLUMN_THEMES: ColumnThemeType[] = [
   'original_kelp',
-  'block',
+  'blockWorld',
   'candy',
   'tangled_kelp',
-  'matrix',
+  'cyberGrid',
   'lava',
   'sunken_atlantis',
 ];
@@ -39,10 +38,10 @@ export interface ColumnThemePalette {
  * Returns the column theme for a given reef level.
  * Changes every 2 reefs through the 7 requested themes:
  * 1: original kelp-pipe columns
- * 2: block columns
+ * 2: blockWorld columns
  * 3: candy columns
  * 4: tangled kelp columns
- * 5: matrix-style columns
+ * 5: cyberGrid columns
  * 6: lava columns
  * 7: sunken Atlantis
  * (cycles back to original kelp at 15-16, etc.)
@@ -116,15 +115,14 @@ export function getColumnThemeName(reefLevel: number): string {
   switch (theme) {
     case 'original_kelp':
       return 'Atlantis Ruins';
-    case 'block':
-    case 'minecraft':
-      return 'Block Columns';
+    case 'blockWorld':
+      return 'Block World';
     case 'candy':
       return 'Candy Columns';
     case 'tangled_kelp':
       return 'Tangled Kelp';
-    case 'matrix':
-      return 'Matrix Columns';
+    case 'cyberGrid':
+      return 'Cyber Grid';
     case 'lava':
       return 'Lava Columns';
     case 'sunken_atlantis':
@@ -233,8 +231,7 @@ export function getColumnThemePalette(
       };
     }
 
-    case 'block':
-    case 'minecraft': {
+    case 'blockWorld': {
       if (isVolcanic) {
         return {
           theme,
@@ -464,7 +461,7 @@ export function getColumnThemePalette(
       };
     }
 
-    case 'matrix': {
+    case 'cyberGrid': {
       if (isVolcanic) {
         return {
           theme,
@@ -484,7 +481,7 @@ export function getColumnThemePalette(
       if (isCrystal) {
         return {
           theme,
-          name: 'Cyber Violet Matrix',
+          name: 'Cyber Violet Grid',
           borderColor: '#100320',
           bodyGradient: ['#0b0216', '#1a0633', '#110321', '#07010f'],
           accentPrimary: '#c084fc',
@@ -532,7 +529,7 @@ export function getColumnThemePalette(
       // Ocean Cyan Cyber Terminal (Standard)
       return {
         theme,
-        name: 'Ocean Cyan Matrix',
+        name: 'Ocean Cyan Grid',
         borderColor: '#02181c',
         bodyGradient: ['#021013', '#04252a', '#031a1e', '#010a0c'],
         accentPrimary: '#06b6d4',

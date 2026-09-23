@@ -10,6 +10,7 @@ import {
   getCandyTypeForColumn,
   getCandyTypeForReef,
 } from './columnThemes';
+import { drawThemedSeabedDecorations } from './seabedItems';
 
 export function createInitialClouds(): Cloud[] {
   return [
@@ -506,7 +507,7 @@ function drawAmbientParticles(
  * 2. Block Columns (16-bit voxel blocks with pixel dithering & stepped slabs)
  * 3. Candy Columns (glossy peppermint spiral candy canes with sugar sheen)
  * 4. Tangled Kelp Columns (interwoven fibrous vines & braided organic ropes)
- * 5. Matrix-Style Columns (cybernetic terminal scanlines & cascading neon glyphs)
+ * 5. Cyber Grid Columns (cybernetic terminal scanlines & cascading neon glyphs)
  * 6. Lava Columns (basalt obsidian crags with glowing molten magma fissures)
  * 7. Sunken Atlantis Columns (classical fluted marble pillars, gold friezes & Atlantean crystals)
  *
@@ -540,8 +541,7 @@ export function drawPipes(
       case 'original_kelp':
         drawKelpColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
         break;
-      case 'block':
-      case 'minecraft':
+      case 'blockWorld':
         drawBlockColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
         break;
       case 'candy':
@@ -550,8 +550,8 @@ export function drawPipes(
       case 'tangled_kelp':
         drawTangledKelpColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
         break;
-      case 'matrix':
-        drawMatrixColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
+      case 'cyberGrid':
+        drawCyberGridColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
         break;
       case 'lava':
         drawLavaColumn(ctx, x, w, topH, botY, botH, capHeight, tSec, colNum, palette);
@@ -3435,9 +3435,9 @@ function drawTangledKelpCap(
 }
 
 // ==========================================
-// 5. THEME: MATRIX-STYLE COLUMNS
+// 5. THEME: CYBER GRID COLUMNS
 // ==========================================
-function drawMatrixColumn(
+function drawCyberGridColumn(
   ctx: CanvasRenderingContext2D,
   x: number,
   w: number,
@@ -3450,16 +3450,16 @@ function drawMatrixColumn(
   palette: ColumnThemePalette
 ) {
   if (topH > 0) {
-    drawMatrixPillarBody(ctx, x, 0, w, topH - capHeight, tSec, palette);
-    drawMatrixCap(ctx, x - 4, topH - capHeight, w + 8, capHeight, true, undefined, palette);
+    drawCyberGridPillarBody(ctx, x, 0, w, topH - capHeight, tSec, palette);
+    drawCyberGridCap(ctx, x - 4, topH - capHeight, w + 8, capHeight, true, undefined, palette);
   }
   if (botH > 0) {
-    drawMatrixCap(ctx, x - 4, botY, w + 8, capHeight, false, colNum, palette);
-    drawMatrixPillarBody(ctx, x, botY + capHeight, w, botH - capHeight, tSec, palette);
+    drawCyberGridCap(ctx, x - 4, botY, w + 8, capHeight, false, colNum, palette);
+    drawCyberGridPillarBody(ctx, x, botY + capHeight, w, botH - capHeight, tSec, palette);
   }
 }
 
-function drawMatrixPillarBody(
+function drawCyberGridPillarBody(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -3496,7 +3496,7 @@ function drawMatrixPillarBody(
   ctx.lineTo(x + w - 3, y + h);
   ctx.stroke();
 
-  // 3 Vertical Data Streams of Falling Matrix Glyphs
+  // 3 Vertical Data Streams of Falling Cyber Grid Glyphs
   const tracks = [x + 10, x + w / 2, x + w - 10];
   const glyphs = ['1', '0', '>', ':', '#', 'X', '7', 'Z', '<', '+'];
 
@@ -3536,7 +3536,7 @@ function drawMatrixPillarBody(
   ctx.restore();
 }
 
-function drawMatrixCap(
+function drawCyberGridCap(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -4165,6 +4165,8 @@ export function drawGround(
   if (transition && transition.progress < 1) {
     const fromAesthetic = getAestheticForReef(transition.fromReef);
     const toAesthetic = getAestheticForReef(transition.toReef);
+    const fromTheme = getColumnThemeForReef(transition.fromReef);
+    const toTheme = getColumnThemeForReef(transition.toReef);
     const p = Math.max(0, Math.min(1, transition.progress));
 
     drawSeabedAtmosphere(ctx, width, height, groundHeight, scrollOffset, time, fromAesthetic);
@@ -4173,348 +4175,49 @@ export function drawGround(
     ctx.globalAlpha = p;
     drawSeabedAtmosphere(ctx, width, height, groundHeight, scrollOffset, time, toAesthetic);
     ctx.restore();
+
+    // 5. FOREGROUND 3D SHELF: Themed sea floor items with smooth biome crossfade
+    drawThemedSeabedDecorations(
+      ctx,
+      width,
+      y,
+      groundHeight,
+      scrollOffset,
+      fromTheme,
+      fromAesthetic,
+      time
+    );
+
+    ctx.save();
+    ctx.globalAlpha = p;
+    drawThemedSeabedDecorations(
+      ctx,
+      width,
+      y,
+      groundHeight,
+      scrollOffset,
+      toTheme,
+      toAesthetic,
+      time
+    );
+    ctx.restore();
   } else {
     const aesthetic = getAestheticForReef(reefLevel);
+    const theme = getColumnThemeForReef(reefLevel);
     drawSeabedAtmosphere(ctx, width, height, groundHeight, scrollOffset, time, aesthetic);
-  }
 
-  // 5. FOREGROUND 3D SHELF: Starfish, Seashells, and Pebbles (Speed: 1.38x - Slightly Faster for 3D Depth!)
-  ctx.save();
-  const fgSpeed = 1.38;
-  const decorPeriod = 230; // Clean repeating period for diverse spread
-  const dOffset = ((scrollOffset * fgSpeed) % decorPeriod + decorPeriod) % decorPeriod;
-
-  for (let bx = -dOffset; bx < width + decorPeriod; bx += decorPeriod) {
-    // 5a. Coral-Pink Crown Starfish with 3D drop shadow and white tubercle beads
-    drawStarfish(
+    // 5. FOREGROUND 3D SHELF: Themed sea floor items matched to column theme & background aesthetic
+    drawThemedSeabedDecorations(
       ctx,
-      bx + 36,
-      y + 44,
-      8.5,
-      -0.12,
-      '#fb7185',
-      '#e11d48',
-      '#ffe4e6'
-    );
-
-    // 5b. Pearlescent Scallop Shell with radiating ivory flutes and drop shadow
-    drawScallopShell(
-      ctx,
-      bx + 94,
-      y + 68,
-      8.0,
-      0.08
-    );
-
-    // 5c. Smooth Sea Pebble with specular highlight and drop shadow
-    drawSeaPebble(
-      ctx,
-      bx + 140,
-      y + 78,
-      5.5,
-      3.8,
-      -0.2,
-      '#0f766e',
-      '#5eead4'
-    );
-
-    // 5d. Sun-Amber Reef Starfish (distinct angle & warm golden color)
-    drawStarfish(
-      ctx,
-      bx + 182,
-      y + 52,
-      7.5,
-      0.35,
-      '#f59e0b',
-      '#b45309',
-      '#fef08a'
-    );
-
-    // 5e. Spiral Nautilus / Conch Shell with interior depth aperture
-    drawSpiralShell(
-      ctx,
-      bx + 218,
-      y + 70,
-      7.5,
-      -0.25
-    );
-
-    // 5f. Small Luminous Sea Glass Pebble
-    drawSeaPebble(
-      ctx,
-      bx + 72,
-      y + 82,
-      4.2,
-      2.8,
-      0.4,
-      '#14b8a6',
-      '#99f6e4'
+      width,
+      y,
+      groundHeight,
+      scrollOffset,
+      theme,
+      aesthetic,
+      time
     );
   }
-  ctx.restore();
-}
-
-/**
- * Detailed 5-pointed Starfish with:
- * - Soft 3D cast drop shadow on the sand
- * - Naturally curved, tapered rays
- * - Central raised disk with highlight
- * - Dotted tubercle rows along arms
- */
-function drawStarfish(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  r: number,
-  angle: number,
-  bodyColor: string,
-  outlineColor: string,
-  beadColor: string
-) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-
-  // 1. Soft 3D Drop Shadow onto the sand
-  ctx.fillStyle = 'rgba(2, 26, 21, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(2, 4, r * 1.05, r * 0.65, 0.08, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 2. Starfish Body (5 points with curved valleys)
-  ctx.fillStyle = bodyColor;
-  ctx.strokeStyle = outlineColor;
-  ctx.lineWidth = 1.3;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-
-  const points = 5;
-  for (let i = 0; i < points * 2; i++) {
-    const a = (i * Math.PI) / points - Math.PI / 2;
-    const isTip = i % 2 === 0;
-    const rad = isTip ? r : r * 0.42;
-    const px = Math.cos(a) * rad;
-    const py = Math.sin(a) * rad;
-
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 3. Central Raised Star Disk
-  ctx.fillStyle = beadColor;
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 0.24, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = outlineColor;
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 4. Delicate decorative tubercles along each ray
-  ctx.fillStyle = beadColor;
-  for (let i = 0; i < points; i++) {
-    const a = (i * 2 * Math.PI) / points - Math.PI / 2;
-    const dirX = Math.cos(a);
-    const dirY = Math.sin(a);
-
-    // Mid tubercle
-    ctx.beginPath();
-    ctx.arc(dirX * r * 0.52, dirY * r * 0.52, 1.1, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Tip tubercle
-    ctx.beginPath();
-    ctx.arc(dirX * r * 0.78, dirY * r * 0.78, 0.8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-/**
- * Pearlescent Fan Scallop Shell with:
- * - Soft cast 3D shadow on sand
- * - Radiating ivory/gold flutes
- * - Shimmering crest rim
- */
-function drawScallopShell(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  r: number,
-  angle: number
-) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-
-  // 1. Soft 3D Drop Shadow
-  ctx.fillStyle = 'rgba(2, 26, 21, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(2, 3.5, r * 0.95, r * 0.6, 0.1, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 2. Shell Base Outline
-  const shellGrad = ctx.createLinearGradient(0, r * 0.5, 0, -r);
-  shellGrad.addColorStop(0, '#d97706');    // golden amber hinge
-  shellGrad.addColorStop(0.3, '#fde047');  // warm gold
-  shellGrad.addColorStop(0.7, '#fef9c3');  // pearlescent cream
-  shellGrad.addColorStop(1, '#ffffff');    // bright specular crest
-  ctx.fillStyle = shellGrad;
-  ctx.strokeStyle = '#92400e';
-  ctx.lineWidth = 1.1;
-
-  ctx.beginPath();
-  // Fan contour
-  ctx.moveTo(-r * 0.3, r * 0.4); // hinge left
-  ctx.lineTo(r * 0.3, r * 0.4);  // hinge right
-  ctx.quadraticCurveTo(r * 0.9, r * 0.1, r * 0.95, -r * 0.3);
-  ctx.quadraticCurveTo(r * 0.6, -r * 0.9, 0, -r);
-  ctx.quadraticCurveTo(-r * 0.6, -r * 0.9, -r * 0.95, -r * 0.3);
-  ctx.quadraticCurveTo(-r * 0.9, r * 0.1, -r * 0.3, r * 0.4);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 3. Radiating Flute Ribs
-  ctx.strokeStyle = 'rgba(180, 83, 9, 0.4)';
-  ctx.lineWidth = 0.9;
-  const ribAngles = [-0.55, -0.28, 0, 0.28, 0.55];
-  for (const ra of ribAngles) {
-    ctx.beginPath();
-    ctx.moveTo(0, r * 0.3);
-    const targetX = Math.sin(ra) * r * 0.92;
-    const targetY = -Math.cos(ra) * r * 0.92;
-    ctx.quadraticCurveTo(targetX * 0.5, targetY * 0.5, targetX, targetY);
-    ctx.stroke();
-  }
-
-  // 4. Specular Pearl Highlight at rim
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.arc(0, -r * 0.2, r * 0.75, -Math.PI * 0.75, -Math.PI * 0.25);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-/**
- * Coiled Spiral Conch Shell with:
- * - 3D cast drop shadow
- * - Elegant golden-amber spiral coils
- * - Dark aperture opening creating interior depth
- */
-function drawSpiralShell(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  r: number,
-  angle: number
-) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-
-  // 1. Soft 3D Drop Shadow
-  ctx.fillStyle = 'rgba(2, 26, 21, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(2, 3.5, r * 1.1, r * 0.55, 0.05, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 2. Spiral Shell Body
-  const coneGrad = ctx.createLinearGradient(-r, 0, r, 0);
-  coneGrad.addColorStop(0, '#78350f');   // dark tip
-  coneGrad.addColorStop(0.35, '#d97706'); // amber body
-  coneGrad.addColorStop(0.7, '#fde68a');  // cream band
-  coneGrad.addColorStop(1, '#ffffff');   // bright outer rim
-  ctx.fillStyle = coneGrad;
-  ctx.strokeStyle = '#78350f';
-  ctx.lineWidth = 1.1;
-
-  ctx.beginPath();
-  ctx.moveTo(-r * 0.9, -r * 0.1); // tapered cone tip
-  ctx.quadraticCurveTo(-r * 0.3, -r * 0.7, r * 0.6, -r * 0.5);
-  ctx.quadraticCurveTo(r * 1.05, -r * 0.1, r * 0.8, r * 0.45);
-  ctx.quadraticCurveTo(r * 0.3, r * 0.55, -r * 0.3, r * 0.3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 3. Concentric Spiral Whorl Lines
-  ctx.strokeStyle = 'rgba(120, 53, 15, 0.45)';
-  ctx.lineWidth = 1.0;
-  ctx.beginPath();
-  ctx.moveTo(-r * 0.5, -r * 0.4);
-  ctx.quadraticCurveTo(-r * 0.4, 0, -r * 0.15, r * 0.32);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(-r * 0.05, -r * 0.58);
-  ctx.quadraticCurveTo(r * 0.1, 0, r * 0.32, r * 0.48);
-  ctx.stroke();
-
-  // 4. Deep Aperture Opening (gives hollow interior depth)
-  ctx.fillStyle = '#451a03';
-  ctx.beginPath();
-  ctx.ellipse(r * 0.58, r * 0.08, r * 0.28, r * 0.35, -0.2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Highlight along aperture lip
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-  ctx.lineWidth = 1.1;
-  ctx.beginPath();
-  ctx.arc(r * 0.65, -r * 0.1, r * 0.26, -Math.PI * 0.6, Math.PI * 0.2);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-/**
- * Smooth River Sea Pebble with 3D shadow & specular glint
- */
-function drawSeaPebble(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  rx: number,
-  ry: number,
-  angle: number,
-  baseColor: string,
-  highlightColor: string
-) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-
-  // Cast shadow
-  ctx.fillStyle = 'rgba(2, 26, 21, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(1.5, 2.5, rx * 1.05, ry * 0.8, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Pebble body
-  ctx.fillStyle = baseColor;
-  ctx.strokeStyle = '#042f2e';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Top specular gleam
-  ctx.fillStyle = highlightColor;
-  ctx.globalAlpha = 0.55;
-  ctx.beginPath();
-  ctx.ellipse(-rx * 0.28, -ry * 0.3, rx * 0.45, ry * 0.3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1.0;
-
-  ctx.restore();
 }
 
 /**
