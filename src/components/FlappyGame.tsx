@@ -550,10 +550,33 @@ export const FlappyGame: React.FC = () => {
   // Handle jumping to next reef while preserving survival run score and immediately starting swim
   const handleContinueRunToNextReef = useCallback(() => {
     const s = stateRef.current;
-    const nextReef = Math.min(TOTAL_REEF_LEVELS, s.currentReef + 1);
+    let nextReef = s.currentReef + 1;
+
+    // When completing level 50:
+    // (1) if easy, changes difficulty mode to medium and starts on level 1
+    // (2) if medium, changes difficulty mode to hard and starts on level 1
+    // (3) if hard, starts on level 1
+    if (s.currentReef >= TOTAL_REEF_LEVELS) {
+      nextReef = 1;
+      let nextDifficulty: GameDifficulty = s.difficulty;
+      if (s.difficulty === 'easy') {
+        nextDifficulty = 'medium';
+      } else if (s.difficulty === 'medium') {
+        nextDifficulty = 'hard';
+      } else {
+        nextDifficulty = 'hard';
+      }
+
+      if (nextDifficulty !== s.difficulty) {
+        saveGameDifficulty(nextDifficulty);
+        setDifficulty(nextDifficulty);
+        s.difficulty = nextDifficulty;
+      }
+    }
 
     const updated = saveReefSelection(nextReef);
     setReefProgress(updated);
+    setClearedReefLevel(nextReef);
     setNewlyUnlockedFish(null);
     setPriorTotalFragments(null);
     setPriorReefMaxFragments(null);
@@ -957,12 +980,8 @@ export const FlappyGame: React.FC = () => {
           if (Date.now() - (s.reefClearedTime || 0) < 500) {
             return;
           }
-          // If cleared, space advances to next reef or replays
-          if (s.currentReef < TOTAL_REEF_LEVELS) {
-            handleContinueRunToNextReef();
-          } else {
-            handleReplayLevel();
-          }
+          // If cleared, space advances to next reef (or loops to reef 1 on higher difficulty on reef 50)
+          handleContinueRunToNextReef();
         } else {
           handleFlap();
         }

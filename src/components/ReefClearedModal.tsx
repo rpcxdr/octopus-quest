@@ -35,7 +35,7 @@ interface ReefClearedModalProps {
 export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
   isOpen,
   reefLevel,
-  difficulty: _difficulty = 'medium',
+  difficulty = 'medium',
   flapsThisRun,
   runTotalColumns,
   reefsClearedInRun,
@@ -62,6 +62,17 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
   const isFinalReef = reefLevel >= TOTAL_REEF_LEVELS;
   const isEquipped = unlockedFish && selectedFish === unlockedFish.id;
   const isUnder10s = clearTimeSeconds !== undefined && clearTimeSeconds <= 10.05;
+
+  let nextReefButtonText = 'Keep Swimming!';
+  if (isFinalReef) {
+    if (difficulty === 'easy') {
+      nextReefButtonText = 'Swim Reef 1 on Medium Difficulty!';
+    } else if (difficulty === 'medium') {
+      nextReefButtonText = 'Swim Reef 1 on Hard Difficulty!';
+    } else {
+      nextReefButtonText = 'Keep Swimming Reef 1!';
+    }
+  }
 
   // 0.5s lockout so the player won't accidentally close the modal too soon
   const [canInteract, setCanInteract] = useState(false);
@@ -98,7 +109,7 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!canInteract) return;
-    if (e.target === e.currentTarget && !isFinalReef) {
+    if (e.target === e.currentTarget) {
       onNextReef();
     }
   };
@@ -223,24 +234,24 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
                 : 'opacity-40 grayscale-[25%] pointer-events-none select-none'
             }`}
           >
-            {!isFinalReef ? (
-              <button
-                id="next-reef-btn"
-                disabled={!canInteract}
-                onClick={() => {
-                  if (!canInteract) return;
-                  onNextReef();
-                }}
-                className="w-full py-3.5 sm:py-4 px-5 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white font-black uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2.5 shadow-lg shadow-cyan-500/25 transition active:scale-98 cursor-pointer text-base sm:text-lg"
-              >
-                <span>Keep Swimming!</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            ) : (
-              <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs font-bold mb-1">
+            {isFinalReef && (
+              <div className="p-2.5 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs font-bold text-center shadow-sm">
                 🏆 Master of the Deep! All 50 Reefs Cleared!
               </div>
             )}
+
+            <button
+              id="next-reef-btn"
+              disabled={!canInteract}
+              onClick={() => {
+                if (!canInteract) return;
+                onNextReef();
+              }}
+              className="w-full py-3.5 sm:py-4 px-4 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white font-black uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 transition active:scale-98 cursor-pointer text-sm sm:text-base text-center leading-tight"
+            >
+              <span>{nextReefButtonText}</span>
+              <ArrowRight className="w-5 h-5 shrink-0" />
+            </button>
 
             <div className="grid grid-cols-2 gap-2">
               <button

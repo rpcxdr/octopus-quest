@@ -6,11 +6,12 @@ import {
   BarChart2,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
   Lock,
   Sparkles,
 } from 'lucide-react';
 import { BirdSkin, FishFragmentCounts, FishType, GameDifficulty, GameStats, ReefProgress } from '../types';
-import { getReefZoneName } from '../utils/reef';
+import { getReefZoneName, TOTAL_REEF_LEVELS } from '../utils/reef';
 import { countTotalFragments } from '../utils/fragments';
 import { getNextBadgeGoal, getBadgeVisual } from '../utils/badges';
 import { FishSelectorPanel } from './FishSelectorPanel';
@@ -63,6 +64,10 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
   const nextRuneGoal = getNextBadgeGoal(stats.totalScore, reefProgress, stats, totalFragmentsByFish);
   const runeVisual = nextRuneGoal ? getBadgeVisual(nextRuneGoal.badge.id) : null;
 
+  const isLevel50Completed = Boolean(reefProgress.clearedReefs[TOTAL_REEF_LEVELS]?.cleared);
+  const isReef50 = currentReef >= TOTAL_REEF_LEVELS;
+  const canGoPrev = currentReef > 1 || (currentReef === 1 && isLevel50Completed);
+
   useEffect(() => {
     setShowRuneDetails(false);
   }, [reefProgress.currentReef, reefProgress.clearedReefs.length]);
@@ -71,11 +76,20 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
     e.stopPropagation();
     if (currentReef > 1) {
       onSelectReef(currentReef - 1);
+      setLockedHint(null);
+    } else if (currentReef === 1 && isLevel50Completed) {
+      onSelectReef(TOTAL_REEF_LEVELS);
+      setLockedHint(null);
     }
   };
 
   const handleNextReef = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isReef50) {
+      onSelectReef(1);
+      setLockedHint(null);
+      return;
+    }
     if (currentReef < unlockedReef) {
       onSelectReef(currentReef + 1);
       setLockedHint(null);
@@ -260,10 +274,14 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
           <button
             id="prev-reef-btn"
             type="button"
-            disabled={currentReef <= 1}
+            disabled={!canGoPrev}
             onClick={handlePrevReef}
             className="w-11 sm:w-12 rounded-2xl bg-slate-950/85 hover:bg-slate-900/90 border border-cyan-500/30 flex items-center justify-center text-cyan-300 disabled:opacity-20 disabled:cursor-not-allowed transition cursor-pointer active:scale-95 shrink-0 shadow-xl"
-            title="Previous Reef"
+            title={
+              currentReef === 1 && isLevel50Completed
+                ? `Reef ${TOTAL_REEF_LEVELS}`
+                : "Previous Reef"
+            }
           >
             <ChevronLeft className="w-8 h-8 sm:w-9 sm:h-9" strokeWidth={2.5} />
           </button>
@@ -319,23 +337,31 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
             })()}
           </motion.button>
 
-          {/* Right Chevron: dark translucent background, full height of the current Reef button */}
+          {/* Right Chevron / Replay button for Reef 50: dark translucent background */}
           <button
             id="next-reef-btn"
             type="button"
             onClick={handleNextReef}
             className={`w-11 sm:w-12 rounded-2xl bg-slate-950/85 border border-cyan-500/30 flex items-center justify-center transition cursor-pointer active:scale-95 shrink-0 shadow-xl ${
-              currentReef >= unlockedReef
+              isReef50
+                ? 'text-cyan-300 hover:bg-slate-900/90'
+                : currentReef >= unlockedReef
                 ? 'text-slate-500 opacity-30 hover:text-amber-400 hover:border-amber-500/40'
                 : 'text-cyan-300 hover:bg-slate-900/90'
             }`}
             title={
-              currentReef >= unlockedReef
+              isReef50
+                ? "Replay from Reef 1"
+                : currentReef >= unlockedReef
                 ? `Reef ${currentReef + 1} is locked - Complete Reef ${currentReef} to unlock`
                 : "Next Reef"
             }
           >
-            <ChevronRight className="w-8 h-8 sm:w-9 sm:h-9" strokeWidth={2.5} />
+            {isReef50 ? (
+              <RotateCcw className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.5} />
+            ) : (
+              <ChevronRight className="w-8 h-8 sm:w-9 sm:h-9" strokeWidth={2.5} />
+            )}
           </button>
         </div>
 
