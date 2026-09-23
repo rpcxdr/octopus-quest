@@ -314,6 +314,8 @@ export function canFishChangeColor(
       return isBadgeUnlocked('atlantis_gate', 0, reefProgress, stats, totalFragmentsByFish);
     case 'clownfish':
       return isBadgeUnlocked('tidesong', 0, reefProgress, stats, totalFragmentsByFish);
+    case 'seahorse':
+      return isBadgeUnlocked('coral_seahorse', 0, reefProgress, stats, totalFragmentsByFish);
     default:
       return false;
   }
@@ -338,6 +340,8 @@ export function getFishColorUnlockHint(
       return '🏛️ Complete Atlantis Gate Rune to unlock Puffer Fish shades';
     case 'clownfish':
       return '🐟 Complete Tidesong Rune to unlock Clown Fish shades';
+    case 'seahorse':
+      return '🪸 Complete Coral Seahorse Rune to unlock Seahorse shades';
     default:
       return null;
   }

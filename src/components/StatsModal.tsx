@@ -299,6 +299,8 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                     unlocked
                       ? b.id === 'tidesong'
                         ? 'bg-teal-500/20 border-teal-400/60 text-teal-300 shadow-[0_0_12px_rgba(45,212,191,0.25)]'
+                        : b.id === 'coral_seahorse'
+                        ? 'bg-purple-500/20 border-purple-400/60 text-purple-300 shadow-[0_0_12px_rgba(192,132,252,0.25)]'
                         : b.id === 'atlantis_gate'
                         ? 'bg-indigo-500/20 border-indigo-400/60 text-indigo-300 shadow-[0_0_12px_rgba(129,140,248,0.25)]'
                         : b.id === 'gulf_stream'
@@ -318,7 +320,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                     <RuneBadgeIcon
                       badgeId={b.id}
                       emoji={b.emoji}
-                      size={b.id === 'tidesong' ? 24 : '1.35rem'}
+                      size={b.id === 'tidesong' || b.id === 'coral_seahorse' ? 24 : '1.35rem'}
                       grayscale={!unlocked}
                     />
                   </div>
@@ -332,6 +334,8 @@ export const StatsModal: React.FC<StatsModalProps> = ({
                         progress.isAchieved
                           ? b.id === 'tidesong'
                             ? 'bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.6)]'
+                            : b.id === 'coral_seahorse'
+                            ? 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]'
                             : b.id === 'atlantis_gate'
                             ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.6)]'
                             : b.id === 'gulf_stream'

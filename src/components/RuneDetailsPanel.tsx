@@ -77,7 +77,13 @@ export const RuneDetailsPanel: React.FC<RuneDetailsPanelProps> = ({
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 progress.isAchieved
-                  ? badge.id === 'gulf_stream'
+                  ? badge.id === 'tidesong'
+                    ? 'bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)]'
+                    : badge.id === 'coral_seahorse'
+                    ? 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]'
+                    : badge.id === 'atlantis_gate'
+                    ? 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]'
+                    : badge.id === 'gulf_stream'
                     ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)]'
                     : 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]'
                   : 'bg-cyan-500 shadow-[0_0_6px_rgba(6,182,212,0.4)]'

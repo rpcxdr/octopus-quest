@@ -42,7 +42,7 @@ export const BADGES: BadgeDefinition[] = [
     id: 'nautilus',
     name: 'Nautilus',
     emoji: '🍥',
-    requirement: 'Pass Reef 4',
+    requirement: 'Pass Reef 5',
     effect: '+1 fragments / reef',
     bonusFragments: 1,
   },
@@ -71,6 +71,14 @@ export const BADGES: BadgeDefinition[] = [
     bonusFragments: 1,
   },
   {
+    id: 'coral_seahorse',
+    name: 'Coral Seahorse',
+    emoji: '🪸',
+    requirement: 'Pass 10 reefs in a row using the seahorse',
+    effect: '+1 fragments / reef & Seahorse colors',
+    bonusFragments: 1,
+  },
+  {
     id: 'tidesong',
     name: 'Tidesong',
     emoji: '🐟',
@@ -84,10 +92,11 @@ export const BADGES: BadgeDefinition[] = [
  * Checks whether a specific badge is unlocked.
  * - Coral: Earned at 10 total points (regardless of reef level)
  * - Shell: Earned at 20 total points (regardless of reef level)
- * - Nautilus: Earned by passing Reef 4
+ * - Nautilus: Earned by passing Reef 5
  * - Diamond: Earned by passing Reef 50
  * - Gulf Stream: Earned by completing 10 levels in a row, each in 10 seconds or less
  * - Atlantis Gate: Earned by completing all 50 reefs in order without dying
+ * - Coral Seahorse: Earned by passing 10 reefs in a row using the seahorse
  * - Tidesong: Earned by activating all of the fish
  */
 export function isBadgeUnlocked(
@@ -103,8 +112,8 @@ export function isBadgeUnlocked(
     case 'shell':
       return totalPoints >= 20;
     case 'nautilus':
-      return (
-        !!reefProgress?.clearedReefs[4]?.cleared ||
+      return Boolean(
+        reefProgress?.clearedReefs?.[5]?.cleared ||
         (reefProgress?.unlockedReef ?? 1) > 5
       );
     case 'diamond':
@@ -126,6 +135,15 @@ export function isBadgeUnlocked(
         !!reefProgress?.atlantisGateUnlocked ||
         !!stats?.atlantisGateUnlocked ||
         (stats?.bestReefsAchieved !== undefined && stats.bestReefsAchieved >= 50)
+      );
+    case 'coral_seahorse':
+      return (
+        !!reefProgress?.coralSeahorseUnlocked ||
+        !!stats?.coralSeahorseUnlocked ||
+        (reefProgress?.bestSeahorseReefsInRow !== undefined && reefProgress.bestSeahorseReefsInRow >= 10) ||
+        (stats?.bestSeahorseReefsInRow !== undefined && stats.bestSeahorseReefsInRow >= 10) ||
+        (reefProgress?.currentSeahorseReefsInRow !== undefined && reefProgress.currentSeahorseReefsInRow >= 10) ||
+        (stats?.currentSeahorseReefsInRow !== undefined && stats.currentSeahorseReefsInRow >= 10)
       );
     case 'tidesong': {
       if (reefProgress?.tidesongUnlocked || stats?.tidesongUnlocked) {
@@ -196,15 +214,15 @@ export function getBadgeProgress(
       return { current, target, unit: 'pts', percent, isAchieved };
     }
     case 'nautilus': {
-      const target = 4;
+      const target = 5;
       let current = 0;
       if (isAchieved) {
         current = target;
       } else {
-        const clearedUpTo4 = [1, 2, 3, 4].filter(
+        const clearedUpTo5 = [1, 2, 3, 4, 5].filter(
           (r) => !!reefProgress?.clearedReefs[r]?.cleared
         ).length;
-        current = Math.min(target, clearedUpTo4);
+        current = Math.min(target, clearedUpTo5);
       }
       const percent = Math.min(100, Math.round((current / target) * 100));
       return { current, target, unit: 'reefs', percent, isAchieved };
@@ -256,6 +274,23 @@ export function getBadgeProgress(
       const percent = Math.min(100, Math.round((current / target) * 100));
       return { current, target, unit: 'reefs', percent, isAchieved };
     }
+    case 'coral_seahorse': {
+      const target = 10;
+      let current = 0;
+      if (isAchieved) {
+        current = target;
+      } else {
+        const bestInRow = Math.max(
+          stats?.bestSeahorseReefsInRow ?? 0,
+          reefProgress?.bestSeahorseReefsInRow ?? 0,
+          stats?.currentSeahorseReefsInRow ?? 0,
+          reefProgress?.currentSeahorseReefsInRow ?? 0
+        );
+        current = Math.min(target, Math.max(0, bestInRow));
+      }
+      const percent = Math.min(100, Math.round((current / target) * 100));
+      return { current, target, unit: 'reefs in a row', percent, isAchieved };
+    }
     case 'tidesong': {
       const target = 5;
       let current = 0;
@@ -282,7 +317,7 @@ export function getBadgeProgress(
  * Calculates the base floating fragment rate per reef level based on earned badges.
  * Starts with a base rate of 0 fragments per reef level:
  * - Coral: +1 (at 10 total points)
- * - Nautilus: +1 (at Reef 4 cleared)
+ * - Nautilus: +1 (at Reef 5 cleared)
  * - Diamond: +2 (at Reef 50 cleared)
  * - Gulf Stream: +1 (10 reef levels in a row each in 10s or less)
  * - Atlantis Gate: +1 (Complete all 50 reefs in order without dying)
@@ -309,6 +344,9 @@ export function getBaseFragments(
     base += 1;
   }
   if (isBadgeUnlocked('atlantis_gate', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
+    base += 1;
+  }
+  if (isBadgeUnlocked('coral_seahorse', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
     base += 1;
   }
   if (isBadgeUnlocked('tidesong', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
@@ -343,6 +381,17 @@ export function getHighestBadge(
       color: 'text-teal-300',
       border: 'border-teal-400/60',
       bg: 'bg-gradient-to-b from-teal-500/30 to-cyan-800/60',
+    };
+  }
+  if (isBadgeUnlocked('coral_seahorse', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
+    return {
+      id: 'coral_seahorse',
+      label: 'Coral Seahorse',
+      emoji: '🪸',
+      effect: '+1 fragments / reef & Seahorse colors',
+      color: 'text-purple-300',
+      border: 'border-purple-400/60',
+      bg: 'bg-gradient-to-b from-purple-500/30 to-pink-700/60',
     };
   }
   if (isBadgeUnlocked('atlantis_gate', totalPoints, reefProgress, stats, totalFragmentsByFish)) {
@@ -435,6 +484,16 @@ export function getBadgeVisual(badgeId: BadgeId): {
   glow: string;
 } {
   switch (badgeId) {
+    case 'coral_seahorse':
+      return {
+        id: 'coral_seahorse',
+        name: 'Coral Seahorse',
+        emoji: '🪸',
+        color: 'text-purple-300',
+        border: 'border-purple-400/60',
+        bg: 'bg-gradient-to-b from-purple-950/80 via-pink-950/70 to-slate-950/90',
+        glow: 'shadow-[0_0_24px_rgba(192,132,252,0.35)]',
+      };
     case 'tidesong':
       return {
         id: 'tidesong',

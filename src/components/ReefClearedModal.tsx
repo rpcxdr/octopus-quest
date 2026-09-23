@@ -5,7 +5,6 @@ import { FishFragmentCounts, FishType, FishUnlockTier, GameDifficulty } from '..
 import { getReefZoneName, TOTAL_REEF_LEVELS } from '../utils/reef';
 import { ReefClearedRecordColumns } from './RecordColumnPodView';
 import { StreakStatsBar } from './StreakStatsBar';
-import { BadgeDefinition } from '../utils/badges';
 
 interface ReefClearedModalProps {
   isOpen: boolean;
@@ -24,11 +23,8 @@ interface ReefClearedModalProps {
   reefMaxFragments?: FishFragmentCounts;
   totalFragmentsByFish?: Record<FishType, number>;
   priorTotalFragmentsByFish?: Record<FishType, number>;
-  isAtlantisGateUnlocked?: boolean;
-  isGulfStreamUnlocked?: boolean;
   clearTimeSeconds?: number;
   currentFastStreak?: number;
-  newlyUnlockedBadges?: BadgeDefinition[];
   onNextReef: () => void;
   onReplayReef: () => void;
   onOpenStats?: () => void;
@@ -53,11 +49,8 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
   reefMaxFragments,
   totalFragmentsByFish,
   priorTotalFragmentsByFish,
-  isAtlantisGateUnlocked,
-  isGulfStreamUnlocked,
   clearTimeSeconds,
   currentFastStreak,
-  newlyUnlockedBadges,
   onNextReef,
   onReplayReef,
   onOpenStats,
@@ -155,50 +148,6 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
             currentFastStreak={currentFastStreak}
             isGameOver={false}
           />
-
-          {/* Atlantis Gate Badge Unlock Banner */}
-          {isAtlantisGateUnlocked && (
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-full mb-3 px-3 py-2 bg-gradient-to-r from-indigo-600/30 via-purple-500/25 to-pink-500/30 rounded-2xl border border-indigo-400/60 text-left shadow-[0_0_20px_rgba(129,140,248,0.25)]"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🏛️</span>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider text-indigo-300 font-game flex items-center gap-1.5">
-                    <span>Badge Unlocked: Atlantis Gate</span>
-                    <Sparkles className="w-3 h-3 text-yellow-300" />
-                  </div>
-                  <div className="text-[10px] text-indigo-100/90 font-medium leading-tight mt-0.5">
-                    Completed all 50 reefs in order without dying! (+1 fragments / reef & Puffer Fish colors)
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Gulf Stream Badge Unlock Banner */}
-          {isGulfStreamUnlocked && (
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-full mb-3 px-3 py-2 bg-gradient-to-r from-blue-600/30 via-sky-500/25 to-teal-500/30 rounded-2xl border border-sky-400/60 text-left shadow-[0_0_20px_rgba(56,189,248,0.25)]"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🌊</span>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider text-sky-300 font-game flex items-center gap-1.5">
-                    <span>Badge Unlocked: Gulf Stream</span>
-                    <Sparkles className="w-3 h-3 text-yellow-300" />
-                  </div>
-                  <div className="text-[10px] text-sky-100/90 font-medium leading-tight mt-0.5">
-                    Speed run 10 reefs in a row, 10s each! (+1 fragments / reef & Sting Ray colors)
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
 
           {/* Reef Fish Fragments Collected - Displaying Record Column pods from left to right */}
           <ReefClearedRecordColumns

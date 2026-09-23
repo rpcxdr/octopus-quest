@@ -49,8 +49,11 @@ const DEFAULT_STATS: GameStats = {
   gulfStreamUnlocked: false,
   atlantisGateUnlocked: false,
   tidesongUnlocked: false,
+  coralSeahorseUnlocked: false,
   currentFastReefsInRow: 0,
   bestFastReefsInRow: 0,
+  currentSeahorseReefsInRow: 0,
+  bestSeahorseReefsInRow: 0,
 };
 
 export function loadSelectedFish(): FishType {
@@ -114,8 +117,11 @@ export const DEFAULT_REEF_PROGRESS: ReefProgress = {
   gulfStreamUnlocked: false,
   atlantisGateUnlocked: false,
   tidesongUnlocked: false,
+  coralSeahorseUnlocked: false,
   currentFastReefsInRow: 0,
   bestFastReefsInRow: 0,
+  currentSeahorseReefsInRow: 0,
+  bestSeahorseReefsInRow: 0,
 };
 
 export function resetReefProgress(): ReefProgress {
@@ -132,8 +138,11 @@ export function resetReefProgress(): ReefProgress {
     gulfStreamUnlocked: false,
     atlantisGateUnlocked: false,
     tidesongUnlocked: false,
+    coralSeahorseUnlocked: false,
     currentFastReefsInRow: 0,
     bestFastReefsInRow: 0,
+    currentSeahorseReefsInRow: 0,
+    bestSeahorseReefsInRow: 0,
   };
 }
 
@@ -188,8 +197,12 @@ export function loadReefProgress(): ReefProgress {
       clearedReefs,
       gulfStreamUnlocked: Boolean(parsed.gulfStreamUnlocked),
       atlantisGateUnlocked: Boolean(parsed.atlantisGateUnlocked),
+      tidesongUnlocked: Boolean(parsed.tidesongUnlocked),
+      coralSeahorseUnlocked: Boolean(parsed.coralSeahorseUnlocked),
       currentFastReefsInRow: Math.max(0, Number(parsed.currentFastReefsInRow) || 0),
       bestFastReefsInRow: Math.max(0, Number(parsed.bestFastReefsInRow) || 0),
+      currentSeahorseReefsInRow: Math.max(0, Number(parsed.currentSeahorseReefsInRow) || 0),
+      bestSeahorseReefsInRow: Math.max(0, Number(parsed.bestSeahorseReefsInRow) || 0),
     };
 
     // Sanitize and persist corrected progress if localStorage had invalid/unearned unlockedReef
@@ -230,17 +243,21 @@ export function completeReefLevel(
   reefNumber: number,
   flaps: number,
   isFullRunWithoutDying: boolean = false,
-  reefTimeSeconds: number = 0
+  reefTimeSeconds: number = 0,
+  playedFish?: FishType
 ): {
   progress: ReefProgress;
   isFirstClear: boolean;
   nextReefUnlocked: boolean;
   atlantisGateUnlockedNow: boolean;
   gulfStreamUnlockedNow: boolean;
+  coralSeahorseUnlockedNow: boolean;
   tidesongUnlockedNow: boolean;
   isUnder10s: boolean;
   currentFastStreak: number;
   bestFastStreak: number;
+  currentSeahorseStreak: number;
+  bestSeahorseStreak: number;
 } {
   const progress = loadReefProgress();
   const curStats = loadGameStats();
@@ -257,10 +274,26 @@ export function completeReefLevel(
   const currentFastStreak = isUnder10s ? prevFastStreak + 1 : 0;
   const bestFastStreak = Math.max(prevBestStreak, currentFastStreak);
 
+  // Requirement: Pass 10 reefs in a row using the seahorse
+  const isUsingSeahorse = playedFish === 'seahorse';
+  const prevSeahorseStreak = progress.currentSeahorseReefsInRow || 0;
+  const prevBestSeahorseStreak = Math.max(
+    progress.bestSeahorseReefsInRow || 0,
+    curStats.bestSeahorseReefsInRow || 0
+  );
+  const currentSeahorseStreak = isUsingSeahorse ? prevSeahorseStreak + 1 : 0;
+  const bestSeahorseStreak = Math.max(prevBestSeahorseStreak, currentSeahorseStreak);
+
   const gulfStreamUnlockedNow = Boolean(
     (currentFastStreak >= 10 || bestFastStreak >= 10) &&
     !progress.gulfStreamUnlocked &&
     !curStats.gulfStreamUnlocked
+  );
+
+  const coralSeahorseUnlockedNow = Boolean(
+    (currentSeahorseStreak >= 10 || bestSeahorseStreak >= 10) &&
+    !progress.coralSeahorseUnlocked &&
+    !curStats.coralSeahorseUnlocked
   );
 
   const atlantisGateUnlockedNow = Boolean(
@@ -313,6 +346,12 @@ export function completeReefLevel(
       curStats.atlantisGateUnlocked ||
       isFullRunWithoutDying
     ),
+    coralSeahorseUnlocked: Boolean(
+      progress.coralSeahorseUnlocked ||
+      curStats.coralSeahorseUnlocked ||
+      currentSeahorseStreak >= 10 ||
+      bestSeahorseStreak >= 10
+    ),
     tidesongUnlocked: Boolean(
       progress.tidesongUnlocked ||
       curStats.tidesongUnlocked ||
@@ -320,6 +359,8 @@ export function completeReefLevel(
     ),
     currentFastReefsInRow: currentFastStreak,
     bestFastReefsInRow: bestFastStreak,
+    currentSeahorseReefsInRow: currentSeahorseStreak,
+    bestSeahorseReefsInRow: bestSeahorseStreak,
   };
 
   try {
@@ -334,8 +375,11 @@ export function completeReefLevel(
       gulfStreamUnlocked: updated.gulfStreamUnlocked,
       atlantisGateUnlocked: updated.atlantisGateUnlocked,
       tidesongUnlocked: updated.tidesongUnlocked,
+      coralSeahorseUnlocked: updated.coralSeahorseUnlocked,
       currentFastReefsInRow: currentFastStreak,
       bestFastReefsInRow: bestFastStreak,
+      currentSeahorseReefsInRow: currentSeahorseStreak,
+      bestSeahorseReefsInRow: bestSeahorseStreak,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedStats));
   } catch {
@@ -348,18 +392,30 @@ export function completeReefLevel(
     nextReefUnlocked,
     atlantisGateUnlockedNow,
     gulfStreamUnlockedNow,
+    coralSeahorseUnlockedNow,
     tidesongUnlockedNow,
     isUnder10s,
     currentFastStreak,
     bestFastStreak,
+    currentSeahorseStreak,
+    bestSeahorseStreak,
   };
 }
 
 export function resetFastStreakOnDeath(): void {
   try {
     const progress = loadReefProgress();
+    let hasChanges = false;
+    const updated = { ...progress };
     if (progress.currentFastReefsInRow && progress.currentFastReefsInRow > 0) {
-      const updated = { ...progress, currentFastReefsInRow: 0 };
+      updated.currentFastReefsInRow = 0;
+      hasChanges = true;
+    }
+    if (progress.currentSeahorseReefsInRow && progress.currentSeahorseReefsInRow > 0) {
+      updated.currentSeahorseReefsInRow = 0;
+      hasChanges = true;
+    }
+    if (hasChanges) {
       localStorage.setItem(REEF_PROGRESS_KEY, JSON.stringify(updated));
     }
   } catch {
@@ -382,8 +438,12 @@ export function loadGameStats(): GameStats {
       dateSet: parsed.dateSet || undefined,
       gulfStreamUnlocked: Boolean(parsed.gulfStreamUnlocked),
       atlantisGateUnlocked: Boolean(parsed.atlantisGateUnlocked),
+      tidesongUnlocked: Boolean(parsed.tidesongUnlocked),
+      coralSeahorseUnlocked: Boolean(parsed.coralSeahorseUnlocked),
       currentFastReefsInRow: Math.max(0, Number(parsed.currentFastReefsInRow) || 0),
       bestFastReefsInRow: Math.max(0, Number(parsed.bestFastReefsInRow) || 0),
+      currentSeahorseReefsInRow: Math.max(0, Number(parsed.currentSeahorseReefsInRow) || 0),
+      bestSeahorseReefsInRow: Math.max(0, Number(parsed.bestSeahorseReefsInRow) || 0),
     };
   } catch {
     return DEFAULT_STATS;
@@ -445,8 +505,12 @@ export function recordCompletedReefStats(
     dateSet: isNewHighScore ? new Date().toLocaleDateString() : current.dateSet,
     gulfStreamUnlocked: current.gulfStreamUnlocked,
     atlantisGateUnlocked: current.atlantisGateUnlocked,
+    tidesongUnlocked: current.tidesongUnlocked,
+    coralSeahorseUnlocked: current.coralSeahorseUnlocked,
     currentFastReefsInRow: current.currentFastReefsInRow || 0,
     bestFastReefsInRow: current.bestFastReefsInRow || 0,
+    currentSeahorseReefsInRow: current.currentSeahorseReefsInRow || 0,
+    bestSeahorseReefsInRow: current.bestSeahorseReefsInRow || 0,
   };
 
   try {
@@ -489,8 +553,12 @@ export function saveGameStats(
     dateSet: isNewHighScore ? new Date().toLocaleDateString() : current.dateSet,
     gulfStreamUnlocked: current.gulfStreamUnlocked,
     atlantisGateUnlocked: current.atlantisGateUnlocked,
+    tidesongUnlocked: current.tidesongUnlocked,
+    coralSeahorseUnlocked: current.coralSeahorseUnlocked,
     currentFastReefsInRow: 0,
     bestFastReefsInRow: current.bestFastReefsInRow || 0,
+    currentSeahorseReefsInRow: 0,
+    bestSeahorseReefsInRow: current.bestSeahorseReefsInRow || 0,
   };
 
   try {

@@ -87,8 +87,11 @@ export interface ReefProgress {
   gulfStreamUnlocked?: boolean;
   atlantisGateUnlocked?: boolean;
   tidesongUnlocked?: boolean;
+  coralSeahorseUnlocked?: boolean;
   currentFastReefsInRow?: number;
   bestFastReefsInRow?: number;
+  currentSeahorseReefsInRow?: number;
+  bestSeahorseReefsInRow?: number;
 }
 
 export interface Particle {
@@ -135,11 +138,14 @@ export interface GameStats {
   gulfStreamUnlocked?: boolean;
   atlantisGateUnlocked?: boolean;
   tidesongUnlocked?: boolean;
+  coralSeahorseUnlocked?: boolean;
   currentFastReefsInRow?: number;
   bestFastReefsInRow?: number;
+  currentSeahorseReefsInRow?: number;
+  bestSeahorseReefsInRow?: number;
 }
 
-export type BadgeId = 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate' | 'tidesong';
+export type BadgeId = 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate' | 'coral_seahorse' | 'tidesong';
 
 export interface GameBadge {
   id: BadgeId;
@@ -151,7 +157,7 @@ export interface GameBadge {
   unlocked: boolean;
 }
 
-export type MedalType = 'none' | 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate' | 'tidesong' | 'bronze' | 'silver' | 'gold' | 'platinum';
+export type MedalType = 'none' | 'coral' | 'shell' | 'nautilus' | 'diamond' | 'gulf_stream' | 'atlantis_gate' | 'coral_seahorse' | 'tidesong' | 'bronze' | 'silver' | 'gold' | 'platinum';
 
 export interface PhysicsConfig {
   gravity: number;        // pixels / sec^2

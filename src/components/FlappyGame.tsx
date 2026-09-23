@@ -171,8 +171,6 @@ export const FlappyGame: React.FC = () => {
     createEmptyFragmentCounts()
   );
   const [priorTotalFragments, setPriorTotalFragments] = useState<FishFragmentCounts | null>(null);
-  const [clearedAtlantisGate, setClearedAtlantisGate] = useState<boolean>(false);
-  const [clearedGulfStream, setClearedGulfStream] = useState<boolean>(false);
   const [clearedReefLevel, setClearedReefLevel] = useState<number>(() => loadReefProgress().currentReef || 1);
   const [lastClearTime, setLastClearTime] = useState<number | undefined>(undefined);
   const [currentFastStreak, setCurrentFastStreak] = useState<number>(() => loadReefProgress().currentFastReefsInRow || 0);
@@ -782,8 +780,6 @@ export const FlappyGame: React.FC = () => {
     setNewlyUnlockedFish(null);
     setPriorTotalFragments(null);
     setPriorReefMaxFragments(null);
-    setClearedAtlantisGate(false);
-    setClearedGulfStream(false);
     setLastClearTime(undefined);
     setCurrentFastStreak(0);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
@@ -874,8 +870,6 @@ export const FlappyGame: React.FC = () => {
     setNewlyUnlockedFish(null);
     setPriorTotalFragments(null);
     setPriorReefMaxFragments(null);
-    setClearedAtlantisGate(false);
-    setClearedGulfStream(false);
     setLastClearTime(undefined);
     setCurrentFastStreak(0);
     badgesBeforeLevelRef.current = BADGES.filter((b) =>
@@ -1235,21 +1229,17 @@ export const FlappyGame: React.FC = () => {
                   currentFastStreak: newFastStreak,
                   atlantisGateUnlockedNow,
                   gulfStreamUnlockedNow,
+                  coralSeahorseUnlockedNow,
                   tidesongUnlockedNow,
                 } = completeReefLevel(
                   clearedLevel,
                   s.flapsCount,
                   isFullRunWithoutDying,
-                  clearTime
+                  clearTime,
+                  s.selectedFish
                 );
                 setReefProgress(updatedReefProgress);
                 setCurrentFastStreak(newFastStreak);
-                if (atlantisGateUnlockedNow) {
-                  setClearedAtlantisGate(true);
-                }
-                if (gulfStreamUnlockedNow) {
-                  setClearedGulfStream(true);
-                }
 
                 // Retain and record max fragments for this completed reef
                 const priorStoredFragments = loadReefFragments();
@@ -1299,6 +1289,7 @@ export const FlappyGame: React.FC = () => {
                     isBadgeUnlocked(b.id, updatedStats.totalScore, updatedReefProgress, updatedStats, newFragsOnClear) ||
                     (b.id === 'atlantis_gate' && atlantisGateUnlockedNow) ||
                     (b.id === 'gulf_stream' && gulfStreamUnlockedNow) ||
+                    (b.id === 'coral_seahorse' && coralSeahorseUnlockedNow) ||
                     (b.id === 'tidesong' && tidesongUnlockedNow);
                   return unlockedNow && !priorBadges.includes(b.id);
                 });
@@ -1359,8 +1350,6 @@ export const FlappyGame: React.FC = () => {
               s.flapsBankedToTotal = s.runTotalFlaps;
               s.hasIncrementedGamesPlayed = true;
               setCurrentFastStreak(0);
-              setClearedAtlantisGate(false);
-              setClearedGulfStream(false);
               setStats(updatedStats);
               setIsNewHighScore(isNewHigh);
 
@@ -1951,11 +1940,8 @@ export const FlappyGame: React.FC = () => {
           reefMaxFragments={getReefMaxFragments(clearedReefLevel)}
           totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
           priorTotalFragmentsByFish={priorTotalFragments || undefined}
-          isAtlantisGateUnlocked={clearedAtlantisGate}
-          isGulfStreamUnlocked={clearedGulfStream}
           clearTimeSeconds={lastClearTime}
           currentFastStreak={currentFastStreak}
-          newlyUnlockedBadges={newlyUnlockedBadges}
           onEquipFish={handleSelectFish}
           onNextReef={handleContinueRunToNextReef}
           onReplayReef={handleReplayLevel}

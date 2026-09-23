@@ -218,7 +218,11 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         nextRuneGoal.progress.isAchieved
-                          ? nextRuneGoal.badge.id === 'atlantis_gate'
+                          ? nextRuneGoal.badge.id === 'tidesong'
+                            ? 'bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.6)]'
+                            : nextRuneGoal.badge.id === 'coral_seahorse'
+                            ? 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]'
+                            : nextRuneGoal.badge.id === 'atlantis_gate'
                             ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.6)]'
                             : nextRuneGoal.badge.id === 'gulf_stream'
                             ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.6)]'
