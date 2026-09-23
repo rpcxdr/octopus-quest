@@ -26,14 +26,16 @@ export const FishFragmentArchiveModal: React.FC<FishFragmentArchiveModalProps> =
     <AnimatePresence>
       <div
         id="fish-fragment-archive-modal"
-        className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl cursor-pointer"
+        style={{ transform: 'translateZ(0)' }}
+        className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/85 cursor-pointer transform-gpu will-change-transform"
         onClick={onClose}
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0, y: 15 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 15 }}
-          className="w-full max-w-md bg-slate-950/95 border border-cyan-500/30 rounded-3xl shadow-2xl p-5 text-slate-100 flex flex-col relative ring-1 ring-white/10 max-h-[90vh] overflow-hidden cursor-default"
+          style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
+          className="w-full max-w-md bg-slate-950/95 border border-cyan-500/30 rounded-3xl shadow-2xl p-5 text-slate-100 flex flex-col relative ring-1 ring-white/10 max-h-[90vh] overflow-hidden cursor-default transform-gpu will-change-transform"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header matching Reef Levels button */}

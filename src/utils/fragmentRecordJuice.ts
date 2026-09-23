@@ -1386,7 +1386,7 @@ export function drawRecordJuice(
   }
 
   // =========================================================================
-  // 5. "NEW RECORD!" GLOWING BANNER BADGE
+  // 5. "NEW RECORD" GLOWING BANNER BADGE
   // =========================================================================
   if (state.newRecordBanner && state.newRecordBanner.alpha > 0.01) {
     const banner = state.newRecordBanner;
@@ -1395,11 +1395,21 @@ export function drawRecordJuice(
     ctx.translate(banner.x, banner.y);
     ctx.scale(banner.scale, banner.scale);
 
-    // Pill badge background
-    const bW = 88;
-    const bH = 26;
+    const badgeText = '★ NEW RECORD ★';
+    ctx.font = 'bold 9px system-ui, -apple-system, sans-serif';
+    const metrics = ctx.measureText(badgeText);
+
+    const ascent = metrics.actualBoundingBoxAscent ?? 7;
+    const descent = metrics.actualBoundingBoxDescent ?? 0;
+
+    // Pill badge background with balanced padding so stars are not crammed into rounded corners
+    const textWidth = metrics.width;
+    const bW = Math.max(94, Math.ceil(textWidth + 20));
+    const bH = 24;
+    const bR = bH / 2; // 12px pill radius
+
     ctx.beginPath();
-    ctx.roundRect(-bW / 2, -bH / 2, bW, bH, 13);
+    ctx.roundRect(-bW / 2, -bH / 2, bW, bH, bR);
     ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
     ctx.fill();
 
@@ -1411,12 +1421,13 @@ export function drawRecordJuice(
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Glowing badge text
-    ctx.font = 'bold 9px system-ui, -apple-system, sans-serif';
+    // Glowing badge text - centered horizontally at x = 0 and optically centered vertically
     ctx.fillStyle = '#FCD34D';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('★ NEW RECORD! ★', 0, -1);
+    ctx.textBaseline = 'alphabetic';
+
+    const opticalY = (ascent - descent) / 2;
+    ctx.fillText(badgeText, 0, opticalY);
 
     ctx.restore();
   }

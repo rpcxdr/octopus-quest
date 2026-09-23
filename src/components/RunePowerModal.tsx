@@ -41,7 +41,8 @@ export const RunePowerModal: React.FC<RunePowerModalProps> = ({
     <AnimatePresence>
       <div
         id="rune-power-modal-backdrop"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl"
+        style={{ transform: 'translateZ(0)' }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 transform-gpu will-change-transform"
         onClick={onClose}
       >
         <motion.div
@@ -49,7 +50,8 @@ export const RunePowerModal: React.FC<RunePowerModalProps> = ({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 15 }}
           transition={{ duration: 0.2 }}
-          className="w-full max-w-sm relative z-10 pointer-events-auto"
+          style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
+          className="w-full max-w-sm relative z-10 pointer-events-auto transform-gpu will-change-transform"
           onClick={(e) => e.stopPropagation()}
         >
           <RunePowerUnlockedPanel

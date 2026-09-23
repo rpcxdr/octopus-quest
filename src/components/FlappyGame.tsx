@@ -106,6 +106,7 @@ import { StartScreenOverlay } from './StartScreenOverlay';
 import { ScoreBoardModal } from './ScoreBoardModal';
 import { StatsModal } from './StatsModal';
 import { ReefClearedModal } from './ReefClearedModal';
+import { RuneAchievementModal } from './RuneAchievementModal';
 import { FishBadgeIcon } from './FishBadgeIcon';
 import { drawFishBadgeCanvas } from '../utils/fishBadgeRenderer';
 import { Pause, Play, Volume2, VolumeX, Home, RotateCcw, Waves, Trophy } from 'lucide-react';
@@ -190,6 +191,7 @@ export const FlappyGame: React.FC = () => {
 
   // Track badges unlocked before level starts to detect new achievements earned during the run
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<BadgeDefinition[]>([]);
+  const [showRuneAchievementModal, setShowRuneAchievementModal] = useState(false);
   const badgesBeforeLevelRef = useRef<BadgeId[]>(
     BADGES.filter((b) => isBadgeUnlocked(b.id, initialStats.totalScore, initialProgress, initialStats, initialTotalFrags)).map((b) => b.id)
   );
@@ -496,6 +498,7 @@ export const FlappyGame: React.FC = () => {
       isBadgeUnlocked(b.id, stats.totalScore, updated, stats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
+    setShowRuneAchievementModal(false);
     const config = getConfig(s.difficulty, safeReef);
     s.reefColumns = generateReefColumns(safeReef, config, s.difficulty);
     s.columnsSpawned = 0;
@@ -542,6 +545,7 @@ export const FlappyGame: React.FC = () => {
       isBadgeUnlocked(b.id, stats.totalScore, updated, stats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
+    setShowRuneAchievementModal(false);
     setGameState('IDLE');
   }, [allReefFragments, stats.totalScore]);
 
@@ -579,6 +583,7 @@ export const FlappyGame: React.FC = () => {
       isBadgeUnlocked(b.id, currentStats.totalScore, updated, currentStats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
+    setShowRuneAchievementModal(false);
     const config = getConfig(s.difficulty, safeNext);
     s.reefColumns = generateReefColumns(safeNext, config, s.difficulty);
     s.columnsSpawned = 0;
@@ -672,6 +677,7 @@ export const FlappyGame: React.FC = () => {
         isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
       ).map((b) => b.id);
       setNewlyUnlockedBadges([]);
+      setShowRuneAchievementModal(false);
       s.gameState = 'PLAYING';
       setGameState('PLAYING');
       setNewlyUnlockedFish(null);
@@ -876,6 +882,7 @@ export const FlappyGame: React.FC = () => {
       isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
+    setShowRuneAchievementModal(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('PLAYING');
   }, [allReefFragments, stats.totalScore, reefProgress]);
@@ -908,7 +915,10 @@ export const FlappyGame: React.FC = () => {
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (
+      showRuneAchievementModal ||
       target.closest('button') ||
+      target.closest('#rune-achievement-modal') ||
+      target.closest('#rune-achievement-modal-backdrop') ||
       target.closest('#home-next-rune-goal') ||
       target.closest('#stats-modal') ||
       target.closest('#game-over-modal') ||
@@ -945,6 +955,10 @@ export const FlappyGame: React.FC = () => {
         if (s.gameState === 'GAMEOVER') {
           handleReplayLevel();
         } else if (s.gameState === 'REEF_CLEARED') {
+          // If Rune Achievement modal is open, do not trigger reef progression from FlappyGame
+          if (showRuneAchievementModal) {
+            return;
+          }
           // Ignore space bar for 0.5 seconds so player won't accidentally close modal too soon
           if (Date.now() - (s.reefClearedTime || 0) < 500) {
             return;
@@ -1291,6 +1305,7 @@ export const FlappyGame: React.FC = () => {
                 setNewlyUnlockedBadges(earnedBadges);
                 if (earnedBadges.length > 0) {
                   sound.playFishLevelUpSplash();
+                  setShowRuneAchievementModal(true);
                 }
 
                 // Celebration particles
@@ -1667,7 +1682,8 @@ export const FlappyGame: React.FC = () => {
         ref={canvasRef}
         width={DEFAULT_PHYSICS.virtualWidth}
         height={virtualHeight}
-        className="w-full h-full block"
+        style={{ transform: 'translateZ(0)' }}
+        className="w-full h-full block transform-gpu will-change-transform"
       />
 
       {/* Touch Visual Ripples */}
@@ -1792,7 +1808,8 @@ export const FlappyGame: React.FC = () => {
       {isPaused && (
         <div
           id="pause-screen-overlay"
-          className="absolute inset-0 z-25 bg-slate-950/85 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 pointer-events-auto"
+          style={{ transform: 'translateZ(0)' }}
+          className="absolute inset-0 z-25 bg-slate-950/85 flex flex-col items-center justify-center text-white p-6 pointer-events-auto transform-gpu will-change-transform"
         >
           <div className="w-full max-w-xs bg-slate-900/90 border border-cyan-500/20 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center">
             <h2 className="text-2xl font-black font-game uppercase tracking-widest text-cyan-400 mb-1">
@@ -1901,8 +1918,19 @@ export const FlappyGame: React.FC = () => {
         />
       )}
 
+      {/* Rune Power Achievement Modal (Precedes Reef Cleared Modal if a Rune Power was achieved this level) */}
+      {gameState === 'REEF_CLEARED' && showRuneAchievementModal && newlyUnlockedBadges.length > 0 && (
+        <RuneAchievementModal
+          isOpen={true}
+          badges={newlyUnlockedBadges}
+          onContinue={() => {
+            setShowRuneAchievementModal(false);
+          }}
+        />
+      )}
+
       {/* Reef Cleared Modal (Level Passed!) */}
-      {gameState === 'REEF_CLEARED' && (
+      {gameState === 'REEF_CLEARED' && (!showRuneAchievementModal || newlyUnlockedBadges.length === 0) && (
         <ReefClearedModal
           isOpen={true}
           reefLevel={clearedReefLevel}

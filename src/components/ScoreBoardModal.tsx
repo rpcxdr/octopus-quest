@@ -72,7 +72,8 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
     <div
       id="game-over-modal"
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-auto bg-slate-950/85 backdrop-blur-md cursor-pointer overflow-x-hidden"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-auto bg-slate-950/85 cursor-pointer overflow-x-hidden transform-gpu will-change-transform"
+      style={{ transform: 'translateZ(0)' }}
       title="Tap background to replay"
     >
       <motion.div
@@ -80,7 +81,8 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
         initial={{ scale: 0.85, opacity: 0, y: 24 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: 'spring', damping: 20, stiffness: 280 }}
-        className="w-full max-w-sm max-h-[92vh] overflow-y-auto overflow-x-hidden bg-slate-900/95 border border-rose-500/40 rounded-3xl p-5 shadow-[0_0_50px_rgba(244,63,94,0.25)] text-slate-100 flex flex-col items-center text-center relative cursor-default"
+        style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
+        className="w-full max-w-sm max-h-[92vh] overflow-y-auto overflow-x-hidden bg-slate-900/95 border border-rose-500/40 rounded-3xl p-5 shadow-[0_0_50px_rgba(244,63,94,0.25)] text-slate-100 flex flex-col items-center text-center relative cursor-default transform-gpu will-change-transform"
       >
         {/* Ambient failure glow & background failed icon watermark (same size & opacity as reef cleared modal, but red) */}
         <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />

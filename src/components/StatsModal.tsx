@@ -72,12 +72,17 @@ export const StatsModal: React.FC<StatsModalProps> = ({
   }, [onClose, showFragmentModal, inspectingBadge]);
 
   return (
-    <div id="stats-modal" className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl">
+    <div
+      id="stats-modal"
+      style={{ transform: 'translateZ(0)' }}
+      className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/85 transform-gpu will-change-transform"
+    >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="w-full max-w-sm bg-slate-950/95 border border-white/15 rounded-3xl shadow-2xl p-5 text-slate-100 flex flex-col relative ring-1 ring-white/10 max-h-[92vh] overflow-y-auto"
+        style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
+        className="w-full max-w-sm bg-slate-950/95 border border-white/15 rounded-3xl shadow-2xl p-5 text-slate-100 flex flex-col relative ring-1 ring-white/10 max-h-[92vh] overflow-y-auto transform-gpu will-change-transform"
       >
         {/* Close Button */}
         <button
@@ -252,7 +257,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           </div>
 
           {/* Contrast preservation overlay: allows the 50 colored columns to clearly shine through while keeping text 100% legible */}
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[0.5px] pointer-events-none group-hover:bg-slate-950/30 transition-colors" />
+          <div className="absolute inset-0 bg-slate-950/50 pointer-events-none group-hover:bg-slate-950/40 transition-colors" />
 
           {/* Button Content */}
           <div className="relative z-10 flex items-center gap-2.5 min-w-0">

@@ -80,7 +80,8 @@ export const RuneAchievementModal: React.FC<RuneAchievementModalProps> = ({
     <AnimatePresence>
       <div
         id="rune-achievement-modal-backdrop"
-        className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pointer-events-auto overflow-x-hidden overflow-y-auto"
+        style={{ transform: 'translateZ(0)' }}
+        className="fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center p-3 sm:p-4 pointer-events-auto overflow-x-hidden overflow-y-auto transform-gpu will-change-transform"
         onClick={(e) => {
           e.stopPropagation();
         }}
@@ -92,7 +93,8 @@ export const RuneAchievementModal: React.FC<RuneAchievementModalProps> = ({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.85, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 20, stiffness: 280 }}
-          className="w-full max-w-sm bg-slate-900/95 border border-amber-400/40 rounded-3xl p-5 shadow-[0_0_60px_rgba(251,191,36,0.3)] text-slate-100 flex flex-col items-center relative overflow-hidden"
+          style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
+          className="w-full max-w-sm bg-slate-900/95 border border-amber-400/40 rounded-3xl p-5 shadow-[0_0_60px_rgba(251,191,36,0.3)] text-slate-100 flex flex-col items-center relative overflow-hidden transform-gpu will-change-transform"
         >
           {/* Ambient background celebration glow */}
           <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-400/20 rounded-full blur-3xl pointer-events-none" />

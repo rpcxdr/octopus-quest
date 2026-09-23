@@ -112,13 +112,16 @@ export const RecordColumnPodCanvas: React.FC<RecordColumnPodCanvasProps> = ({
   }, [fishType, collected, priorRecord, record, unghostedCount, beyondRecordSlotIndices.join(',')]);
 
   return (
-    <div className="relative flex flex-col items-center justify-start w-full overflow-visible">
+    <div
+      className="relative flex flex-col items-center justify-start w-full overflow-visible transform-gpu"
+      style={{ transform: 'translateZ(0)' }}
+    >
       {/* Column pod canvas with floating centered level-up reward overlay */}
       <div className="relative flex items-center justify-center">
         <canvas
           ref={canvasRef}
-          style={{ width: canvasWidth, height: canvasHeight }}
-          className="block drop-shadow-[0_4px_14px_rgba(0,0,0,0.55)]"
+          style={{ width: canvasWidth, height: canvasHeight, transform: 'translateZ(0)' }}
+          className="block drop-shadow-[0_4px_14px_rgba(0,0,0,0.55)] transform-gpu"
         />
 
         {/* If new fish level achieved: floating, centered in both x and y, over the column of that fish type */}
