@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FishType } from '../types';
+import { BirdSkin, BirdSkinConfig, FishType } from '../types';
 import { getFishBadgeDataUrl } from '../utils/fishBadgeRenderer';
+import { BIRD_SKINS, DEFAULT_FISH_SKINS } from '../utils/physics';
 
 export interface FishBadgeIconProps {
   fishType: FishType;
+  skin?: BirdSkin | BirdSkinConfig;
   size?: number | string;
   className?: string;
   style?: React.CSSProperties;
@@ -18,25 +20,31 @@ export interface FishBadgeIconProps {
  */
 export const FishBadgeIcon: React.FC<FishBadgeIconProps> = ({
   fishType,
+  skin,
   size = '1.15em',
   className = '',
   style = {},
   alt,
   title,
 }) => {
+  const skinConfig: BirdSkinConfig =
+    typeof skin === 'string'
+      ? BIRD_SKINS[skin] || BIRD_SKINS[DEFAULT_FISH_SKINS[fishType] || 'coral']
+      : skin || BIRD_SKINS[DEFAULT_FISH_SKINS[fishType] || 'coral'];
+
   const [dataUrl, setDataUrl] = useState<string>(() => {
     if (typeof document !== 'undefined') {
-      return getFishBadgeDataUrl(fishType);
+      return getFishBadgeDataUrl(fishType, skinConfig);
     }
     return '';
   });
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      const url = getFishBadgeDataUrl(fishType);
+      const url = getFishBadgeDataUrl(fishType, skinConfig);
       setDataUrl(url);
     }
-  }, [fishType]);
+  }, [fishType, skinConfig?.id]);
 
   const sizeStyle = typeof size === 'number' ? `${size}px` : size;
 

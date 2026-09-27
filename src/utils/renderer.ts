@@ -4254,7 +4254,7 @@ export function drawBird(
       drawSingRay(ctx, bird, skin, time);
       break;
     case 'seahorse':
-      drawSeahorse(ctx, bird, time);
+      drawSeahorse(ctx, bird, skin, time);
       break;
     case 'octopus':
     default:
@@ -5359,30 +5359,41 @@ function drawSingRay(
  * SEAHORSE (Best 20-24):
  * Elegant S-curve anatomy with coronet crown, tubular snout, fluttering dorsal propeller, and curled tail.
  */
-function drawSeahorse(ctx: CanvasRenderingContext2D, bird: BirdState, time: number) {
+function drawSeahorse(
+  ctx: CanvasRenderingContext2D,
+  bird: BirdState,
+  skin: BirdSkinConfig,
+  time: number
+) {
   ctx.save();
   ctx.translate(bird.x, bird.y);
   ctx.rotate(bird.rotation);
 
   const tSec = time / 1000;
   const isSwimmingUp = bird.velocity < -50;
+  const isDiving = bird.velocity > 120;
 
-  // Ambient Lavender Halo
+  // Ambient Bioluminescent Halo
   const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, 34);
-  halo.addColorStop(0, 'rgba(192, 132, 252, 0.45)');
-  halo.addColorStop(0.6, 'rgba(147, 51, 234, 0.15)');
+  halo.addColorStop(0, `${skin.bodyColor}73`);
+  halo.addColorStop(0.6, `${skin.wingColor}26`);
   halo.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = halo;
   ctx.beginPath();
   ctx.arc(0, 0, 34, 0, Math.PI * 2);
   ctx.fill();
 
+  // Squash & Stretch while moving
+  const stretchX = isSwimmingUp ? 1.05 : (isDiving ? 0.95 : 1.0);
+  const stretchY = isSwimmingUp ? 0.95 : (isDiving ? 1.05 : 1.0);
+  ctx.scale(stretchX, stretchY);
+
   // Rapidly fluttering dorsal fin on back
   const finFlutter = Math.sin(tSec * 28) * 0.35;
   ctx.save();
   ctx.translate(-7, 2);
   ctx.rotate(finFlutter);
-  ctx.fillStyle = 'rgba(233, 213, 255, 0.85)';
+  ctx.fillStyle = skin.accentColor;
   ctx.strokeStyle = '#020617';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -5401,7 +5412,7 @@ function drawSeahorse(ctx: CanvasRenderingContext2D, bird: BirdState, time: numb
   ctx.quadraticCurveTo(-4, 18, -6, 16);
   ctx.stroke();
 
-  ctx.strokeStyle = '#a855f7';
+  ctx.strokeStyle = skin.bodyColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(-3, 8);
@@ -5410,19 +5421,19 @@ function drawSeahorse(ctx: CanvasRenderingContext2D, bird: BirdState, time: numb
   ctx.quadraticCurveTo(-4, 18, -6, 16);
   ctx.stroke();
 
-  // Seahorse Body
+  // Seahorse Body Outer Outline
   ctx.fillStyle = '#020617';
   ctx.beginPath();
   ctx.arc(5, -7, 7, 0, Math.PI * 2);
   ctx.ellipse(0, 3, 7.5, 9, -0.15, 0, Math.PI * 2);
   ctx.fill();
 
-  // Amethyst Body Gradient
+  // Dynamic Body Gradient from selected skin
   const horseGrad = ctx.createLinearGradient(-6, -12, 10, 12);
-  horseGrad.addColorStop(0, '#e9d5ff');
-  horseGrad.addColorStop(0.3, '#c084fc');
-  horseGrad.addColorStop(0.7, '#a855f7');
-  horseGrad.addColorStop(1, '#7e22ce');
+  horseGrad.addColorStop(0, skin.bellyColor || '#f3e8ff');
+  horseGrad.addColorStop(0.3, skin.accentColor || '#c084fc');
+  horseGrad.addColorStop(0.7, skin.bodyColor || '#a855f7');
+  horseGrad.addColorStop(1, skin.spotColor || skin.wingColor || '#7e22ce');
   ctx.fillStyle = horseGrad;
 
   // Head
@@ -5438,7 +5449,7 @@ function drawSeahorse(ctx: CanvasRenderingContext2D, bird: BirdState, time: numb
   // Snout
   ctx.fillStyle = '#020617';
   ctx.fillRect(9, -7, 7, 3.5);
-  ctx.fillStyle = '#c084fc';
+  ctx.fillStyle = skin.accentColor || skin.bodyColor;
   ctx.fillRect(9, -6.5, 6, 2.5);
 
   // Crown / Coronet spikes on top of head
@@ -5461,7 +5472,7 @@ function drawSeahorse(ctx: CanvasRenderingContext2D, bird: BirdState, time: numb
   }
 
   // Segmented armor ridges on belly
-  ctx.strokeStyle = '#f3e8ff';
+  ctx.strokeStyle = skin.bellyColor || '#f3e8ff';
   ctx.lineWidth = 1.2;
   for (let r = -2; r <= 6; r += 2.5) {
     ctx.beginPath();
@@ -5469,6 +5480,22 @@ function drawSeahorse(ctx: CanvasRenderingContext2D, bird: BirdState, time: numb
     ctx.lineTo(4, r);
     ctx.stroke();
   }
+
+  // Spots / Freckles along curved back
+  ctx.fillStyle = skin.spotColor || skin.wingColor;
+  ctx.beginPath();
+  ctx.arc(-2, -1, 1.2, 0, Math.PI * 2);
+  ctx.arc(-4, 3, 1.3, 0, Math.PI * 2);
+  ctx.arc(-2, 7, 1.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cute rosy cheek
+  ctx.fillStyle = skin.accentColor;
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  ctx.arc(4, -4, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1.0;
 
   // Eye
   drawSimpleFishEye(ctx, 6, -8, 4.5, bird.alive, isSwimmingUp);

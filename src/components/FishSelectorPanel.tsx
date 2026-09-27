@@ -88,6 +88,7 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
           const isSelected = Boolean(selectedFish && selectedFish === fish.id);
           const isInspected = Boolean(activeInspectedFish && activeInspectedFish === fish.id);
           const fragmentsInLevel = frags % 10;
+          const currentSkin = fishSkins?.[fish.id] || (isSelected ? selectedSkin : undefined) || DEFAULT_FISH_SKINS[fish.id] || 'coral';
 
           return (
             <button
@@ -123,10 +124,10 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
                 {/* Fish Icon / Lock icon */}
                 <div className="relative leading-none mb-0.5 flex items-center justify-center">
                   {unlocked ? (
-                    <FishBadgeIcon fishType={fish.id} size={19} />
+                    <FishBadgeIcon fishType={fish.id} skin={currentSkin} size={19} />
                   ) : (
                     <div className="relative inline-block leading-none">
-                      <FishBadgeIcon fishType={fish.id} size={19} className="grayscale opacity-50" />
+                      <FishBadgeIcon fishType={fish.id} skin={currentSkin} size={19} className="grayscale opacity-50" />
                       <Lock className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1" />
                     </div>
                   )}
