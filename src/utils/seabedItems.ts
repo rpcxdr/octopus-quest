@@ -1,5 +1,6 @@
 import { BackgroundAesthetic } from './backgroundAesthetics';
 import { ColumnThemeType, getColumnThemePalette, ColumnThemePalette } from './columnThemes';
+import { bitmapCache } from './bitmapCache';
 
 /**
  * Seabed Items Renderer:
@@ -1754,6 +1755,19 @@ export function drawThemedSeabedDecorations(
   const isGold = waterId.includes('atlantis') || waterId.includes('golden') || waterId.includes('sunken');
   const isGlacial = waterId.includes('ice') || waterId.includes('glacial') || waterId.includes('frozen');
 
+  const aestheticKey = aesthetic.id || 'default';
+  const drawItem = (
+    slotIndex: number,
+    x: number,
+    y: number,
+    renderFn: (c: CanvasRenderingContext2D, cx: number, cy: number) => void
+  ) => {
+    const key = `seabed_${theme}_${aestheticKey}_${slotIndex}`;
+    bitmapCache.drawCached(ctx, key, x, y, 48, 48, (offscreenCtx) => {
+      renderFn(offscreenCtx, 24, 24);
+    });
+  };
+
   for (let bx = -dOffset; bx < width + decorPeriod; bx += decorPeriod) {
     switch (theme) {
       /* ---------------------------------------------------------------------- */
@@ -1838,17 +1852,29 @@ export function drawThemedSeabedDecorations(
         }
 
         // 1. Starfish 1
-        drawStarfish(ctx, bx + 36, y + 44, 8.5, -0.12, star1Body, star1Outline, star1Bead, shadow);
+        drawItem(0, bx + 36, y + 44, (c, cx, cy) => {
+          drawStarfish(c, cx, cy, 8.5, -0.12, star1Body, star1Outline, star1Bead, shadow);
+        });
         // 2. Scallop Shell
-        drawScallopShell(ctx, bx + 94, y + 68, 8.0, 0.08, shellHinge, shellMid, shellRim, '#78350f', shadow);
+        drawItem(1, bx + 94, y + 68, (c, cx, cy) => {
+          drawScallopShell(c, cx, cy, 8.0, 0.08, shellHinge, shellMid, shellRim, '#78350f', shadow);
+        });
         // 3. Smooth Sea Pebble
-        drawSeaPebble(ctx, bx + 140, y + 78, 5.5, 3.8, -0.2, pebble1Base, pebble1Glint, shadow);
+        drawItem(2, bx + 140, y + 78, (c, cx, cy) => {
+          drawSeaPebble(c, cx, cy, 5.5, 3.8, -0.2, pebble1Base, pebble1Glint, shadow);
+        });
         // 4. Starfish 2
-        drawStarfish(ctx, bx + 182, y + 52, 7.5, 0.35, star2Body, star2Outline, star2Bead, shadow);
+        drawItem(3, bx + 182, y + 52, (c, cx, cy) => {
+          drawStarfish(c, cx, cy, 7.5, 0.35, star2Body, star2Outline, star2Bead, shadow);
+        });
         // 5. Spiral Conch Shell
-        drawSpiralShell(ctx, bx + 218, y + 70, 7.5, -0.25, shellHinge, shellMid, shellRim, '#451a03', shadow);
+        drawItem(4, bx + 218, y + 70, (c, cx, cy) => {
+          drawSpiralShell(c, cx, cy, 7.5, -0.25, shellHinge, shellMid, shellRim, '#451a03', shadow);
+        });
         // 6. Sea Glass Pebble
-        drawSeaPebble(ctx, bx + 72, y + 82, 4.2, 2.8, 0.4, pebble2Base, pebble2Glint, shadow);
+        drawItem(5, bx + 72, y + 82, (c, cx, cy) => {
+          drawSeaPebble(c, cx, cy, 4.2, 2.8, 0.4, pebble2Base, pebble2Glint, shadow);
+        });
         break;
       }
 
@@ -1857,17 +1883,29 @@ export function drawThemedSeabedDecorations(
       /* ---------------------------------------------------------------------- */
       case 'blockWorld': {
         // 1. Small Voxel Cobblestone
-        drawBlockCobblestone(ctx, bx + 34, y + 46, 10, palette, shadow);
+        drawItem(0, bx + 34, y + 46, (c, cx, cy) => {
+          drawBlockCobblestone(c, cx, cy, 10, palette, shadow);
+        });
         // 2. Pixel Sea Clam with Pearl
-        drawBlockClam(ctx, bx + 92, y + 68, 9, palette, shadow);
+        drawItem(1, bx + 92, y + 68, (c, cx, cy) => {
+          drawBlockClam(c, cx, cy, 9, palette, shadow);
+        });
         // 3. Prismatic Gem Shard
-        drawBlockGemShard(ctx, bx + 142, y + 76, 8, palette, shadow);
+        drawItem(2, bx + 142, y + 76, (c, cx, cy) => {
+          drawBlockGemShard(c, cx, cy, 8, palette, shadow);
+        });
         // 4. Pixel Sea Pickle Sprout
-        drawBlockSeaPickle(ctx, bx + 182, y + 50, 7, 10, palette, shadow);
+        drawItem(3, bx + 182, y + 50, (c, cx, cy) => {
+          drawBlockSeaPickle(c, cx, cy, 7, 10, palette, shadow);
+        });
         // 5. Stepped Nautilus Tile
-        drawBlockNautilus(ctx, bx + 220, y + 70, 9, palette, shadow);
+        drawItem(4, bx + 220, y + 70, (c, cx, cy) => {
+          drawBlockNautilus(c, cx, cy, 9, palette, shadow);
+        });
         // 6. Gold / Mineral Nugget Cubelet
-        drawBlockNugget(ctx, bx + 70, y + 82, 6, palette, shadow);
+        drawItem(5, bx + 70, y + 82, (c, cx, cy) => {
+          drawBlockNugget(c, cx, cy, 6, palette, shadow);
+        });
         break;
       }
 
@@ -1876,17 +1914,29 @@ export function drawThemedSeabedDecorations(
       /* ---------------------------------------------------------------------- */
       case 'candy': {
         // 1. Peppermint Swirl Hard Candy
-        drawCandySwirlDrop(ctx, bx + 36, y + 45, 8.0, palette, shadow);
+        drawItem(0, bx + 36, y + 45, (c, cx, cy) => {
+          drawCandySwirlDrop(c, cx, cy, 8.0, palette, shadow);
+        });
         // 2. Translucent Gummy Starfish
-        drawGummyStarfish(ctx, bx + 94, y + 68, 8.0, 0.15, palette, shadow);
+        drawItem(1, bx + 94, y + 68, (c, cx, cy) => {
+          drawGummyStarfish(c, cx, cy, 8.0, 0.15, palette, shadow);
+        });
         // 3. Wrapped Taffy Twist
-        drawWrappedTaffy(ctx, bx + 140, y + 76, 8.5, 5.0, -0.2, palette, shadow);
+        drawItem(2, bx + 140, y + 76, (c, cx, cy) => {
+          drawWrappedTaffy(c, cx, cy, 8.5, 5.0, -0.2, palette, shadow);
+        });
         // 4. Rock Candy Sugar Geode
-        drawRockCandyGeode(ctx, bx + 184, y + 52, 7.5, palette, shadow);
+        drawItem(3, bx + 184, y + 52, (c, cx, cy) => {
+          drawRockCandyGeode(c, cx, cy, 7.5, palette, shadow);
+        });
         // 5. Glossy Candy Button
-        drawCandyButton(ctx, bx + 218, y + 72, 6.0, palette, shadow);
+        drawItem(4, bx + 218, y + 72, (c, cx, cy) => {
+          drawCandyButton(c, cx, cy, 6.0, palette, shadow);
+        });
         // 6. Mini Candy Cane Crook
-        drawCandyCaneCrook(ctx, bx + 72, y + 80, 7.0, 0.4, palette, shadow);
+        drawItem(5, bx + 72, y + 80, (c, cx, cy) => {
+          drawCandyCaneCrook(c, cx, cy, 7.0, 0.4, palette, shadow);
+        });
         break;
       }
 
@@ -1895,17 +1945,29 @@ export function drawThemedSeabedDecorations(
       /* ---------------------------------------------------------------------- */
       case 'tangled_kelp': {
         // 1. Kelp Root Holdfast
-        drawKelpHoldfast(ctx, bx + 36, y + 46, 8.5, palette, shadow);
+        drawItem(0, bx + 36, y + 46, (c, cx, cy) => {
+          drawKelpHoldfast(c, cx, cy, 8.5, palette, shadow);
+        });
         // 2. Kelp Float Bladder
-        drawKelpBladder(ctx, bx + 94, y + 66, 7.5, 0.25, palette, shadow);
+        drawItem(1, bx + 94, y + 66, (c, cx, cy) => {
+          drawKelpBladder(c, cx, cy, 7.5, 0.25, palette, shadow);
+        });
         // 3. Spiny Sea Urchin
-        drawSeaUrchin(ctx, bx + 140, y + 78, 7.5, palette, shadow);
+        drawItem(2, bx + 140, y + 78, (c, cx, cy) => {
+          drawSeaUrchin(c, cx, cy, 7.5, palette, shadow);
+        });
         // 4. Tangled Brittle Star
-        drawBrittleStar(ctx, bx + 182, y + 52, 8.0, -0.15, palette, shadow);
+        drawItem(3, bx + 182, y + 52, (c, cx, cy) => {
+          drawBrittleStar(c, cx, cy, 8.0, -0.15, palette, shadow);
+        });
         // 5. Ribbed Turban Snail Shell
-        drawTurbanSnailShell(ctx, bx + 218, y + 70, 7.0, palette, shadow);
+        drawItem(4, bx + 218, y + 70, (c, cx, cy) => {
+          drawTurbanSnailShell(c, cx, cy, 7.0, palette, shadow);
+        });
         // 6. Bioluminescent Kelp Spore Pod
-        drawKelpSporePod(ctx, bx + 72, y + 82, 5.5, palette, shadow);
+        drawItem(5, bx + 72, y + 82, (c, cx, cy) => {
+          drawKelpSporePod(c, cx, cy, 5.5, palette, shadow);
+        });
         break;
       }
 
@@ -1914,17 +1976,29 @@ export function drawThemedSeabedDecorations(
       /* ---------------------------------------------------------------------- */
       case 'cyberGrid': {
         // 1. Silicon Microchip Die (lying flat)
-        drawCyberGridMicrochip(ctx, bx + 36, y + 46, 13, 10, palette, shadow);
+        drawItem(0, bx + 36, y + 46, (c, cx, cy) => {
+          drawCyberGridMicrochip(c, cx, cy, 13, 10, palette, shadow);
+        });
         // 2. Hexagonal Data Node (lying flat)
-        drawCyberGridHexNode(ctx, bx + 92, y + 68, 8.0, time, palette, shadow);
+        drawItem(1, bx + 92, y + 68, (c, cx, cy) => {
+          drawCyberGridHexNode(c, cx, cy, 8.0, 0, palette, shadow);
+        });
         // 3. Quantum Qubit Capacitor (lying flat)
-        drawCyberGridQubit(ctx, bx + 140, y + 78, 11, 7, palette, shadow);
+        drawItem(2, bx + 140, y + 78, (c, cx, cy) => {
+          drawCyberGridQubit(c, cx, cy, 11, 7, palette, shadow);
+        });
         // 4. Embedded Code Glyph Tile (lying flat)
-        drawCyberGridGlyphTile(ctx, bx + 184, y + 52, 10, palette, shadow);
+        drawItem(3, bx + 184, y + 52, (c, cx, cy) => {
+          drawCyberGridGlyphTile(c, cx, cy, 10, palette, shadow);
+        });
         // 5. Coiled Fiber-Optic Cable (lying flat)
-        drawCyberGridFiberCable(ctx, bx + 220, y + 70, 8.0, palette, shadow);
+        drawItem(4, bx + 220, y + 70, (c, cx, cy) => {
+          drawCyberGridFiberCable(c, cx, cy, 8.0, palette, shadow);
+        });
         // 6. Polyhedral Data Bit Cube (lying flat)
-        drawCyberGridDataCube(ctx, bx + 70, y + 82, 8.5, palette, shadow);
+        drawItem(5, bx + 70, y + 82, (c, cx, cy) => {
+          drawCyberGridDataCube(c, cx, cy, 8.5, palette, shadow);
+        });
         break;
       }
 
@@ -1933,17 +2007,29 @@ export function drawThemedSeabedDecorations(
       /* ---------------------------------------------------------------------- */
       case 'lava': {
         // 1. Mini Hydrothermal Smoker Chimney
-        drawLavaChimney(ctx, bx + 36, y + 44, 9, 12, palette, shadow);
+        drawItem(0, bx + 36, y + 44, (c, cx, cy) => {
+          drawLavaChimney(c, cx, cy, 9, 12, palette, shadow);
+        });
         // 2. Porous Lava Pumice Pebble
-        drawLavaPumice(ctx, bx + 94, y + 68, 7.0, palette, shadow);
+        drawItem(1, bx + 94, y + 68, (c, cx, cy) => {
+          drawLavaPumice(c, cx, cy, 7.0, palette, shadow);
+        });
         // 3. Cracked Magma Geode Ember
-        drawLavaEmberCore(ctx, bx + 140, y + 76, 7.5, palette, shadow);
+        drawItem(2, bx + 140, y + 76, (c, cx, cy) => {
+          drawLavaEmberCore(c, cx, cy, 7.5, palette, shadow);
+        });
         // 4. Glossy Obsidian Glass Teardrop
-        drawLavaObsidian(ctx, bx + 182, y + 52, 7.0, palette, shadow);
+        drawItem(3, bx + 182, y + 52, (c, cx, cy) => {
+          drawLavaObsidian(c, cx, cy, 7.0, palette, shadow);
+        });
         // 5. Hydrothermal Pyrite Cluster
-        drawLavaPyrite(ctx, bx + 218, y + 70, 7.5, palette, shadow);
+        drawItem(4, bx + 218, y + 70, (c, cx, cy) => {
+          drawLavaPyrite(c, cx, cy, 7.5, palette, shadow);
+        });
         // 6. Cooling Lava Cinder Crust
-        drawLavaCinderCrust(ctx, bx + 72, y + 80, 10, 6, palette, shadow);
+        drawItem(5, bx + 72, y + 80, (c, cx, cy) => {
+          drawLavaCinderCrust(c, cx, cy, 10, 6, palette, shadow);
+        });
         break;
       }
 
@@ -1952,17 +2038,29 @@ export function drawThemedSeabedDecorations(
       /* ---------------------------------------------------------------------- */
       case 'sunken_atlantis': {
         // 1. Ancient Atlantean Gold Coin
-        drawAtlantisCoin(ctx, bx + 36, y + 45, 8.0, palette, shadow);
+        drawItem(0, bx + 36, y + 45, (c, cx, cy) => {
+          drawAtlantisCoin(c, cx, cy, 8.0, palette, shadow);
+        });
         // 2. Broken Fluted Marble Column Piece
-        drawAtlantisColumnPiece(ctx, bx + 94, y + 66, 12, 8, palette, shadow);
+        drawItem(1, bx + 94, y + 66, (c, cx, cy) => {
+          drawAtlantisColumnPiece(c, cx, cy, 12, 8, palette, shadow);
+        });
         // 3. Submerged Terracotta Amphora
-        drawAtlantisAmphora(ctx, bx + 140, y + 76, 7.5, 0.35, palette, shadow);
+        drawItem(2, bx + 140, y + 76, (c, cx, cy) => {
+          drawAtlantisAmphora(c, cx, cy, 7.5, 0.35, palette, shadow);
+        });
         // 4. Orichalcum Spearhead Fragment
-        drawAtlantisSpearhead(ctx, bx + 182, y + 52, 8.0, -0.25, palette, shadow);
+        drawItem(3, bx + 182, y + 52, (c, cx, cy) => {
+          drawAtlantisSpearhead(c, cx, cy, 8.0, -0.25, palette, shadow);
+        });
         // 5. Broken Mosaic Meander Tile
-        drawAtlantisMosaicTile(ctx, bx + 218, y + 70, 8.5, palette, shadow);
+        drawItem(4, bx + 218, y + 70, (c, cx, cy) => {
+          drawAtlantisMosaicTile(c, cx, cy, 8.5, palette, shadow);
+        });
         // 6. Carved Atlantean Medallion Talisman
-        drawAtlantisMedallion(ctx, bx + 72, y + 80, 7.5, palette, shadow);
+        drawItem(5, bx + 72, y + 80, (c, cx, cy) => {
+          drawAtlantisMedallion(c, cx, cy, 7.5, palette, shadow);
+        });
         break;
       }
     }

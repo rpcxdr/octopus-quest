@@ -1,6 +1,7 @@
 import { FishType, BirdState, BirdSkinConfig } from '../types';
 import { drawBird } from './renderer';
 import { BIRD_SKINS, DEFAULT_FISH_SKINS } from './physics';
+import { bitmapCache } from './bitmapCache';
 
 export interface FishBadgeConfig {
   offsetX: number;
@@ -41,10 +42,9 @@ export const FISH_BADGE_CONFIGS: Record<FishType, FishBadgeConfig> = {
 };
 
 /**
- * Renders a small static fish directly onto a 2D Canvas context at (centerX, centerY).
- * Uses static defaults (coral skin, resting wing frame, 0 velocity/rotation) scaled to `targetSize`.
+ * Internal helper to draw the vector fish badge centered at (centerX, centerY).
  */
-export function drawFishBadgeCanvas(
+function renderFishBadgeVector(
   ctx: CanvasRenderingContext2D,
   fishType: FishType,
   centerX: number,
@@ -77,34 +77,52 @@ export function drawFishBadgeCanvas(
   ctx.restore();
 }
 
-// In-memory cache for pre-rendered PNG data URLs (high-DPI 64x64)
-const dataUrlCache = new Map<string, string>();
+/**
+ * Renders a small static fish directly onto a 2D Canvas context at (centerX, centerY).
+ * Leverages the shared BitmapCache to blit the pre-rendered canvas for instant 60 FPS performance.
+ */
+export function drawFishBadgeCanvas(
+  ctx: CanvasRenderingContext2D,
+  fishType: FishType,
+  centerX: number,
+  centerY: number,
+  targetSize: number = 18,
+  customSkin?: BirdSkinConfig
+): void {
+  const defaultSkinId = DEFAULT_FISH_SKINS[fishType] || 'coral';
+  const skin = customSkin || BIRD_SKINS[defaultSkinId] || BIRD_SKINS.coral;
+  const cacheKey = `fish_badge_${fishType}_${skin.id}`;
+
+  const baseCanvas = bitmapCache.getCanvas(cacheKey, 64, 64, (offscreenCtx) => {
+    renderFishBadgeVector(offscreenCtx, fishType, 32, 32, 50, skin);
+  });
+
+  if (baseCanvas) {
+    const renderSize = (targetSize / 50) * 64;
+    ctx.drawImage(
+      baseCanvas,
+      centerX - renderSize / 2,
+      centerY - renderSize / 2,
+      renderSize,
+      renderSize
+    );
+  } else {
+    renderFishBadgeVector(ctx, fishType, centerX, centerY, targetSize, skin);
+  }
+}
 
 /**
  * Returns a high-resolution PNG data URL rendering of the static fish badge.
- * Cached in memory for instant reuse without canvas overhead.
+ * Managed by the shared BitmapCache for zero-overhead DOM <img> reuse.
  */
 export function getFishBadgeDataUrl(fishType: FishType, customSkin?: BirdSkinConfig): string {
-  if (typeof document === 'undefined') return '';
+  const defaultSkinId = DEFAULT_FISH_SKINS[fishType] || 'coral';
+  const skin = customSkin || BIRD_SKINS[defaultSkinId] || BIRD_SKINS.coral;
+  const cacheKey = `fish_badge_${fishType}_${skin.id}`;
 
-  const cacheKey = customSkin ? `${fishType}_${customSkin.id}` : fishType;
-  const cached = dataUrlCache.get(cacheKey);
-  if (cached) return cached;
-
-  const canvas = document.createElement('canvas');
-  const canvasSize = 64;
-  canvas.width = canvasSize;
-  canvas.height = canvasSize;
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
-
-  // Draw centered at (32, 32) scaled to fit comfortably inside 64x64 with soft halo clearance
-  drawFishBadgeCanvas(ctx, fishType, canvasSize / 2, canvasSize / 2, 50, customSkin);
-
-  const dataUrl = canvas.toDataURL('image/png');
-  dataUrlCache.set(cacheKey, dataUrl);
-  return dataUrl;
+  return bitmapCache.getDataUrl(cacheKey, 64, 64, (ctx) => {
+    renderFishBadgeVector(ctx, fishType, 32, 32, 50, skin);
+  });
 }
 
 /**
@@ -161,25 +179,12 @@ export function drawSchoolOfFishCanvas(
   }
 }
 
-let schoolDataUrlCache: string = '';
-
 /**
  * Returns a high-resolution PNG data URL rendering of the school of fish.
+ * Cached via the shared BitmapCache.
  */
 export function getSchoolOfFishDataUrl(): string {
-  if (typeof document === 'undefined') return '';
-  if (schoolDataUrlCache) return schoolDataUrlCache;
-
-  const canvas = document.createElement('canvas');
-  const canvasSize = 128;
-  canvas.width = canvasSize;
-  canvas.height = canvasSize;
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
-
-  drawSchoolOfFishCanvas(ctx, canvasSize, canvasSize);
-
-  schoolDataUrlCache = canvas.toDataURL('image/png');
-  return schoolDataUrlCache;
+  return bitmapCache.getDataUrl('school_of_fish_128', 128, 128, (ctx) => {
+    drawSchoolOfFishCanvas(ctx, 128, 128);
+  });
 }

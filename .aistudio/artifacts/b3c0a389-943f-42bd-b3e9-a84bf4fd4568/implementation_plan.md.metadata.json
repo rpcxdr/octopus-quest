@@ -1,0 +1,6 @@
+{
+  "summary":  "Comprehensive implementation plan to design and build a shared, generic bitmap caching engine (bitmapCache.ts) and refactor both fish badges and seabed decorations to use this unified offscreen rasterization system.",
+  "updatedAt":  "2026-09-29T02:43:48.440450620Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
