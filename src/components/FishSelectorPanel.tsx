@@ -2,7 +2,15 @@ import React, { useState } from 'react';
 import { Lock, Sparkles } from 'lucide-react';
 import { BirdSkin, FishType, GameStats, ReefProgress } from '../types';
 import { BIRD_SKINS, DEFAULT_FISH_SKINS } from '../utils/physics';
-import { FISH_LIST, getFishLevel, isFishUnlocked, getFishSpecialPower, canFishChangeColor, getFishColorUnlockHint } from '../utils/fish';
+import {
+  FISH_LIST,
+  getFishLevel,
+  isFishUnlocked,
+  getFishSpecialPower,
+  canFishChangeColor,
+  getFishColorUnlockHint,
+  getFishLevelProgress,
+} from '../utils/fish';
 import { getBaseFragments } from '../utils/badges';
 import { GraduatedCylinder } from './GraduatedCylinder';
 import { FishBadgeIcon } from './FishBadgeIcon';
@@ -83,11 +91,15 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
       <div className="w-full grid grid-cols-5 gap-1">
         {FISH_LIST.map((fish) => {
           const frags = totalFragmentsByFish[fish.id] || 0;
-          const fishLevel = getFishLevel(frags);
+          const {
+            level: fishLevel,
+            fragmentsInLevel,
+            maxFragmentsInLevel,
+            fragmentsNeededForNext,
+          } = getFishLevelProgress(frags);
           const unlocked = isFishUnlocked(fish.id, fishLevel);
           const isSelected = Boolean(selectedFish && selectedFish === fish.id);
           const isInspected = Boolean(activeInspectedFish && activeInspectedFish === fish.id);
-          const fragmentsInLevel = frags % 10;
           const currentSkin = fishSkins?.[fish.id] || (isSelected ? selectedSkin : undefined) || DEFAULT_FISH_SKINS[fish.id] || 'coral';
 
           return (
@@ -103,9 +115,9 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
                   }
                   setLockedHint(null);
                 } else {
-                  const needed = Math.max(0, 10 - frags);
+                  const needed = fragmentsNeededForNext;
                   setLockedHint(
-                    `🔒 ${fish.name} unlocks at Fish Level 1 (requires 10 fragments across reefs, ${needed} more needed)`
+                    `🔒 ${fish.name} unlocks at Fish Level 1 (requires 5 fragments across reefs, ${needed} more needed)`
                   );
                 }
                 setInspectedFish((prev) => (prev === fish.id ? null : fish.id));
@@ -117,7 +129,7 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
                   ? 'border-white/10 bg-slate-900/60 hover:bg-slate-800/70 text-slate-300'
                   : 'border-white/5 bg-slate-950/40 text-slate-600 opacity-60'
               }`}
-              title={`${fish.name} (Lv. ${fishLevel}) • ${fragmentsInLevel}/10 fragments (${10 - fragmentsInLevel} more to Lv.${fishLevel + 1})`}
+              title={`${fish.name} (Lv. ${fishLevel}) • ${fragmentsInLevel}/${maxFragmentsInLevel} fragments (${fragmentsNeededForNext} more to ${unlocked && fishLevel > 0 ? `Lv.${fishLevel + 1}` : 'Unlock'})`}
             >
               {/* Left side: Fish Emoji/Lock, Name, and Level Badge */}
               <div className="flex flex-col items-center justify-center flex-1 min-w-0">
@@ -156,10 +168,11 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
                 </span>
               </div>
 
-              {/* To the right of each fish and its level: Graduated cylinder with 10 level marks */}
+              {/* To the right of each fish and its level: Graduated cylinder with 5 or 10 level marks */}
               <div className="shrink-0 flex items-center justify-center pl-0.5">
                 <GraduatedCylinder
                   fragmentsInLevel={fragmentsInLevel}
+                  maxFragments={maxFragmentsInLevel}
                   color={fish.themeColor}
                   level={fishLevel}
                   unlocked={unlocked}
@@ -184,11 +197,15 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
       {activeInspectedFish && (() => {
         const targetFish = activeInspectedFish;
         const activeFrags = totalFragmentsByFish[targetFish] || 0;
-        const activeLevel = getFishLevel(activeFrags);
+        const {
+          level: activeLevel,
+          fragmentsInLevel: activeFragmentsInLevel,
+          maxFragmentsInLevel: activeMaxFragments,
+          fragmentsNeededForNext: activeNeeded,
+        } = getFishLevelProgress(activeFrags);
         const baseFrags = getBaseFragments(calculatedTotalScore, reefProgress, stats, totalFragmentsByFish);
         const power = getFishSpecialPower(targetFish, activeLevel, baseFrags);
         const activeFishObj = FISH_LIST.find((f) => f.id === targetFish);
-        const activeFragmentsInLevel = activeFrags % 10;
         const unlocked = isFishUnlocked(targetFish, activeLevel);
         return (
           <div
@@ -208,12 +225,13 @@ export const FishSelectorPanel: React.FC<FishSelectorPanelProps> = ({
                 {power.desc}
               </p>
               <div className="text-[8.5px] text-slate-400 font-mono mt-0.5">
-                {activeFrags} fragments collected &bull; {activeFragmentsInLevel}/10 to Lv.{activeLevel + 1} ({10 - activeFragmentsInLevel} more needed)
+                {activeFrags} fragments collected &bull; {activeFragmentsInLevel}/{activeMaxFragments} to {activeLevel === 0 ? 'Lv.1' : `Lv.${activeLevel + 1}`} ({activeNeeded} more needed)
               </div>
             </div>
             <div className="shrink-0 flex items-center justify-center bg-slate-900/60 p-1.5 rounded-xl border border-white/10">
               <GraduatedCylinder
                 fragmentsInLevel={activeFragmentsInLevel}
+                maxFragments={activeMaxFragments}
                 color={activeFishObj?.themeColor || '#38BDF8'}
                 level={activeLevel}
                 unlocked={unlocked}

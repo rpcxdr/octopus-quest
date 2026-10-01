@@ -151,10 +151,10 @@ export function isBadgeUnlocked(
       }
       const frags = totalFragmentsByFish || getTotalFragmentsByFish();
       return (
-        (frags.pufferfish || 0) >= 10 &&
-        (frags.clownfish || 0) >= 10 &&
-        (frags.singray || 0) >= 10 &&
-        (frags.seahorse || 0) >= 10
+        (frags.pufferfish || 0) >= 5 &&
+        (frags.clownfish || 0) >= 5 &&
+        (frags.singray || 0) >= 5 &&
+        (frags.seahorse || 0) >= 5
       );
     }
     default:
@@ -299,10 +299,10 @@ export function getBadgeProgress(
       } else {
         const frags = totalFragmentsByFish || getTotalFragmentsByFish();
         let count = 1; // Octopus is always active from the start
-        if ((frags.pufferfish || 0) >= 10) count++;
-        if ((frags.clownfish || 0) >= 10) count++;
-        if ((frags.singray || 0) >= 10) count++;
-        if ((frags.seahorse || 0) >= 10) count++;
+        if ((frags.pufferfish || 0) >= 5) count++;
+        if ((frags.clownfish || 0) >= 5) count++;
+        if ((frags.singray || 0) >= 5) count++;
+        if ((frags.seahorse || 0) >= 5) count++;
         current = Math.min(target, count);
       }
       const percent = Math.min(100, Math.round((current / target) * 100));

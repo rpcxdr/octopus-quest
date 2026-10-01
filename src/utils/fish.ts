@@ -10,9 +10,9 @@ export const FISH_LIST: FishUnlockTier[] = [
     badgeEmoji: '🐙',
     themeColor: '#FB7185',
     accentColor: '#FDA4AF',
-    specialPowerTitle: 'Fragment Magnetism',
+    specialPowerTitle: 'More Fragments',
     specialPowerDesc: 'Increases floating fragments in each reef by +1 per level (Base 2 + Level).',
-    fragmentsToCollect: 10,
+    fragmentsToCollect: 5,
   },
   {
     id: 'pufferfish',
@@ -24,7 +24,7 @@ export const FISH_LIST: FishUnlockTier[] = [
     accentColor: '#CA8A04',
     specialPowerTitle: 'Survival Shield',
     specialPowerDesc: 'Survival shield lasts 0.5s + 0.5s per level (Lv.1 = 0.5s, Lv.5 = 2.5s). One use per reef.',
-    fragmentsToCollect: 10,
+    fragmentsToCollect: 5,
   },
   {
     id: 'clownfish',
@@ -36,7 +36,7 @@ export const FISH_LIST: FishUnlockTier[] = [
     accentColor: '#0F172A',
     specialPowerTitle: 'Ascent Multiplier',
     specialPowerDesc: 'Consecutive upward flaps scale speed and gravity: octopusValue * (min(taps, level+1)/(level+1)). Resets when traveling downward.',
-    fragmentsToCollect: 10,
+    fragmentsToCollect: 5,
   },
   {
     id: 'singray',
@@ -48,7 +48,7 @@ export const FISH_LIST: FishUnlockTier[] = [
     accentColor: '#0284C7',
     specialPowerTitle: 'Hydro Surge',
     specialPowerDesc: 'Moves 10*level % faster forward (x direction) for 0.3s on space press.',
-    fragmentsToCollect: 10,
+    fragmentsToCollect: 5,
   },
   {
     id: 'seahorse',
@@ -60,7 +60,7 @@ export const FISH_LIST: FishUnlockTier[] = [
     accentColor: '#9333EA',
     specialPowerTitle: 'Wave Switch',
     specialPowerDesc: 'Space switches between swimming up for 0.1*level s & down for 0.1*level s, settling straight.',
-    fragmentsToCollect: 10,
+    fragmentsToCollect: 5,
   },
 ];
 
@@ -80,17 +80,20 @@ export function getBestReefScore(stats: GameStats, progress: ReefProgress): numb
 
 /**
  * Calculates the fish level for a given fish based on total collected fragments across all reef levels.
- * Starts at 0. Level = Math.floor(totalFragments / 10).
- * E.g., 11 fragments = 11 / 10 = 1.
+ * Level 1 requires 5 fragments.
+ * Subsequent levels require 10 fragments each (Level 2 = 15, Level 3 = 25, Level 4 = 35...).
+ * Level 0 = 0 to 4 fragments.
  */
 export function getFishLevel(totalFragments: number): number {
-  return Math.floor(Math.max(0, totalFragments || 0) / 10);
+  const count = Math.max(0, Math.floor(totalFragments || 0));
+  if (count < 5) return 0;
+  return 1 + Math.floor((count - 5) / 10);
 }
 
 /**
  * Checks if a fish is unlocked.
  * Octopus starts already unlocked at level 0.
- * All other fish unlock at level 1 (requires 10 total fragments).
+ * All other fish unlock at level 1 (requires 5 total fragments).
  */
 export function isFishUnlocked(fishId: FishType, fishLevel: number): boolean {
   if (fishId === 'octopus') return true;
@@ -107,22 +110,41 @@ export function isFishUnlockedByFragments(fishId: FishType, totalFragments: numb
 
 /**
  * Calculates progress toward the next fish level.
+ * Level 1 requires 5 fragments (0..4 in level, needed: 5 - count, max: 5).
+ * Level 2+ requires 10 fragments each (0..9 in level, needed: 10 - count, max: 10).
  */
 export function getFishLevelProgress(totalFragments: number): {
   level: number;
-  fragmentsInLevel: number; // 0..9
-  fragmentsNeededForNext: number; // 10 - fragmentsInLevel
+  fragmentsInLevel: number;
+  maxFragmentsInLevel: number; // 5 if level === 0, else 10
+  fragmentsNeededForNext: number;
   progressPercent: number; // 0..100
 } {
-  const count = Math.max(0, totalFragments || 0);
-  const level = Math.floor(count / 10);
-  const fragmentsInLevel = count % 10;
-  return {
-    level,
-    fragmentsInLevel,
-    fragmentsNeededForNext: 10 - fragmentsInLevel,
-    progressPercent: fragmentsInLevel * 10,
-  };
+  const count = Math.max(0, Math.floor(totalFragments || 0));
+  const level = getFishLevel(count);
+  if (level === 0) {
+    const fragmentsInLevel = count;
+    const maxFragmentsInLevel = 5;
+    const fragmentsNeededForNext = 5 - count;
+    return {
+      level: 0,
+      fragmentsInLevel,
+      maxFragmentsInLevel,
+      fragmentsNeededForNext,
+      progressPercent: (fragmentsInLevel / 5) * 100,
+    };
+  } else {
+    const fragmentsInLevel = (count - 5) % 10;
+    const maxFragmentsInLevel = 10;
+    const fragmentsNeededForNext = 10 - fragmentsInLevel;
+    return {
+      level,
+      fragmentsInLevel,
+      maxFragmentsInLevel,
+      fragmentsNeededForNext,
+      progressPercent: (fragmentsInLevel / 10) * 100,
+    };
+  }
 }
 
 /**

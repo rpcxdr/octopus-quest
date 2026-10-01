@@ -117,7 +117,7 @@ export const RecordColumnPodCanvas: React.FC<RecordColumnPodCanvasProps> = ({
       style={{ transform: 'translateZ(0)' }}
     >
       {/* Column pod canvas with floating centered level-up reward overlay */}
-      <div className="relative flex items-center justify-center">
+      <div className="relative flex items-center justify-center overflow-visible">
         <canvas
           ref={canvasRef}
           style={{ width: canvasWidth, height: canvasHeight, transform: 'translateZ(0)' }}
@@ -130,7 +130,7 @@ export const RecordColumnPodCanvas: React.FC<RecordColumnPodCanvasProps> = ({
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 18 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none flex flex-col items-center justify-center"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex flex-col items-center justify-center overflow-visible"
           >
             <motion.div
               animate={{
@@ -217,7 +217,7 @@ export const ReefClearedRecordColumns: React.FC<ReefClearedRecordColumnsProps> =
 
   return (
     <div
-      className="w-full my-3 relative overflow-visible"
+      className="w-full my-3 relative overflow-visible z-20"
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${collectedFish.length}, minmax(0, 1fr))`,

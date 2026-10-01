@@ -305,10 +305,10 @@ export function completeReefLevel(
   const allFrags = loadReefFragments();
   const totalFrags = getTotalFragmentsByFish(allFrags);
   const allFishActivated =
-    (totalFrags.pufferfish || 0) >= 10 &&
-    (totalFrags.clownfish || 0) >= 10 &&
-    (totalFrags.singray || 0) >= 10 &&
-    (totalFrags.seahorse || 0) >= 10;
+    (totalFrags.pufferfish || 0) >= 5 &&
+    (totalFrags.clownfish || 0) >= 5 &&
+    (totalFrags.singray || 0) >= 5 &&
+    (totalFrags.seahorse || 0) >= 5;
 
   const tidesongUnlockedNow = Boolean(
     allFishActivated &&

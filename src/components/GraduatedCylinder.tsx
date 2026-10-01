@@ -1,7 +1,8 @@
 import React from 'react';
 
 interface GraduatedCylinderProps {
-  fragmentsInLevel: number; // 0 to 9
+  fragmentsInLevel: number; // 0 to 4 (if max=5) or 0 to 9 (if max=10)
+  maxFragments?: number; // 5 if level 0, 10 if level >= 1
   color?: string; // Theme color for liquid
   level?: number;
   unlocked?: boolean;
@@ -13,11 +14,12 @@ interface GraduatedCylinderProps {
 /**
  * Graduated Test Tube:
  * Simplified laboratory test-tube silhouette featuring a flared rolled glass rim,
- * a clean straight glass body with 10 graduation level tick marks, and a smooth
- * rounded U-shaped bottom. Fills smoothly according to fragments collected (0-9).
+ * a clean straight glass body with graduation level tick marks (5 for Lv.0 -> Lv.1, 10 for subsequent levels),
+ * and a smooth rounded U-shaped bottom. Fills smoothly according to fragments collected.
  */
 export const GraduatedCylinder: React.FC<GraduatedCylinderProps> = ({
   fragmentsInLevel,
+  maxFragments,
   color = '#38BDF8',
   level = 1,
   unlocked = true,
@@ -25,9 +27,10 @@ export const GraduatedCylinder: React.FC<GraduatedCylinderProps> = ({
   size = 'sm',
   showLabel = true,
 }) => {
-  // Ensure fragments count is clamped between 0 and 9
-  const count = Math.max(0, Math.min(9, Math.floor(fragmentsInLevel || 0)));
-  const needed = 10 - count;
+  // Level 0 requires 5 fragments to reach Level 1; subsequent levels require 10
+  const max = maxFragments ?? (level === 0 ? 5 : 10);
+  const count = Math.max(0, Math.min(max - 1, Math.floor(fragmentsInLevel || 0)));
+  const needed = max - count;
 
   // Test tube geometry in SVG coordinates
   // Center X = 9, tube width = 9.5 (left = 4.25, right = 13.75)
@@ -43,14 +46,15 @@ export const GraduatedCylinder: React.FC<GraduatedCylinderProps> = ({
   // Test tube outline path (top opening -> straight left wall -> rounded bottom dome -> straight right wall)
   const tubePath = `M ${tubeLeft} ${tubeTop} L ${tubeLeft} ${straightBottom} A ${radius} ${radius} 0 0 0 ${tubeRight} ${straightBottom} L ${tubeRight} ${tubeTop} Z`;
 
-  // 10 graduation tick marks from 1 to 10
-  // Level 1 sits just at the transition of the rounded bottom (y = 35)
-  // Level 10 sits near the top rim (y = 8)
-  // Even 3px spacing between marks: y = 38 - m * 3
-  const marks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((m) => {
-    const y = 38 - m * 3;
-    const isMajor = m === 5 || m === 10;
-    const tickWidth = isMajor ? 4.25 : 2.5;
+  // Graduation tick marks from 1 to max (5 marks for Level 1 unlock, 10 marks for Level 2+)
+  // Mark 1 sits just at the transition of the rounded bottom (y = 35)
+  // Mark max sits near the top rim (y = 8)
+  const markNumbers = max === 5 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const marks = markNumbers.map((m) => {
+    const fraction = (m - 1) / (max - 1);
+    const y = 35 - fraction * (35 - 8);
+    const isMajor = max === 5 ? (m === 1 || m === 5) : (m === 5 || m === 10);
+    const tickWidth = isMajor ? 4.25 : (max === 5 ? 3.0 : 2.5);
     return {
       markNumber: m,
       y,
@@ -60,15 +64,17 @@ export const GraduatedCylinder: React.FC<GraduatedCylinderProps> = ({
     };
   });
 
-  // Liquid surface Y: for count = 1 -> y = 35, count = 5 -> y = 23, count = 9 -> y = 11
-  const liquidY = 38 - count * 3;
+  // Liquid surface Y: smoothly fills up to the top mark based on count / max
+  const liquidY = count === 0 ? 38 : 38 - (count / max) * 30;
 
   // Unique ID for SVG gradients / clip paths
   const uniqueId = React.useId().replace(/:/g, '_');
 
-  const tooltipText = unlocked
-    ? `${fishName}: Level ${level} • ${count}/10 fragments (${needed} more to Lv.${level + 1})`
-    : `${fishName}: Locked • ${count}/10 fragments (${needed} more to Unlock)`;
+  const tooltipText = unlocked && level > 0
+    ? `${fishName}: Level ${level} • ${count}/${max} fragments (${needed} more to Lv.${level + 1})`
+    : unlocked && level === 0
+    ? `${fishName}: Level 0 • ${count}/${max} fragments (${needed} more to Lv.1)`
+    : `${fishName}: Locked • ${count}/${max} fragments (${needed} more to Unlock)`;
 
   // Scale based on size prop
   const svgWidth = size === 'lg' ? 24 : size === 'md' ? 20 : 16;
@@ -236,14 +242,14 @@ export const GraduatedCylinder: React.FC<GraduatedCylinderProps> = ({
         />
       </svg>
 
-      {/* Numerical mark label (e.g. "7/10") */}
+      {/* Numerical mark label (e.g. "3/5" or "7/10") */}
       {showLabel && (
         <span
           className={`text-[7px] font-black font-mono leading-none mt-0.5 tracking-tighter ${
             count > 0 ? 'text-cyan-300' : 'text-slate-500'
           }`}
         >
-          {count}/10
+          {count}/{max}
         </span>
       )}
     </div>

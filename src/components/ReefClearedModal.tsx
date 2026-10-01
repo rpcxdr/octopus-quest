@@ -161,13 +161,15 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
           />
 
           {/* Reef Fish Fragments Collected - Displaying Record Column pods from left to right */}
-          <ReefClearedRecordColumns
-            attemptFragments={attemptFragments}
-            priorReefMaxFragments={priorReefMaxFragments}
-            reefMaxFragments={reefMaxFragments}
-            totalFragmentsByFish={totalFragmentsByFish}
-            priorTotalFragmentsByFish={priorTotalFragmentsByFish}
-          />
+          <div className="w-full relative my-1 overflow-visible z-20">
+            <ReefClearedRecordColumns
+              attemptFragments={attemptFragments}
+              priorReefMaxFragments={priorReefMaxFragments}
+              reefMaxFragments={reefMaxFragments}
+              totalFragmentsByFish={totalFragmentsByFish}
+              priorTotalFragmentsByFish={priorTotalFragmentsByFish}
+            />
+          </div>
 
           {/* Newly Unlocked Fish Celebration */}
           {unlockedFish && (
@@ -176,15 +178,8 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
               animate={{ scale: 1, opacity: 1 }}
               className="w-full bg-gradient-to-r from-cyan-950/80 via-teal-950/80 to-slate-900/90 border-2 border-cyan-400 rounded-2xl p-3 mb-4 shadow-[0_0_20px_rgba(6,182,212,0.3)] text-center flex flex-col items-center gap-1.5"
             >
-              <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-cyan-300">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-spin" />
-                <span>
-                  {unlockedFish.achievedLevel && unlockedFish.achievedLevel > 1
-                    ? `${unlockedFish.name} Level ${unlockedFish.achievedLevel} Achieved!`
-                    : 'New Fish Character Unlocked!'}
-                </span>
-              </div>
               <div className="text-xl sm:text-2xl font-black font-game text-white tracking-wider my-1">
+                {!(unlockedFish.achievedLevel && unlockedFish.achievedLevel > 1) && `Unlocked: `}
                 {unlockedFish.name}
               </div>
               {unlockedFish.specialPowerTitle && (
@@ -192,12 +187,12 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
                   <div className="text-[10px] font-black text-amber-300">
                     ⚡ Special Power: {unlockedFish.specialPowerTitle}
                   </div>
-                  <div className="text-[9px] text-slate-300">
+                  <div className="text-[10px] text-slate-300">
                     {unlockedFish.specialPowerDesc}
                   </div>
                 </div>
               )}
-              {onEquipFish && (
+              {onEquipFish && !isEquipped && (
                 <button
                   id="equip-new-fish-btn"
                   disabled={!canInteract}
@@ -208,19 +203,10 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
                   className={`mt-1 py-1.5 px-3 rounded-xl font-bold text-xs flex items-center gap-1 transition ${
                     !canInteract
                       ? 'opacity-40 pointer-events-none cursor-not-allowed'
-                      : isEquipped
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer'
                       : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-md active:scale-95 cursor-pointer'
                   }`}
                 >
-                  {isEquipped ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Equipped as Active Swimmer</span>
-                    </>
-                  ) : (
-                    <span>Equip {unlockedFish.name.split(' ')[0]} Now</span>
-                  )}
+                  <span>Equip {unlockedFish.name.split(' ')[0]} Now</span>
                 </button>
               )}
             </motion.div>

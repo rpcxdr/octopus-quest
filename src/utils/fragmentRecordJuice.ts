@@ -1,5 +1,5 @@
 import { FishType, Particle, BirdState } from '../types';
-import { getFishThemeColor, getFishDisplayName } from './fish';
+import { getFishThemeColor, getFishDisplayName, getFishLevel } from './fish';
 import { SoundController } from './audio';
 import { drawBird } from './renderer';
 import { BIRD_SKINS, DEFAULT_FISH_SKINS } from './physics';
@@ -261,7 +261,7 @@ export function triggerFragmentRecordJuice(
   const currentExpectedTotal = baseTotalFragments + Math.max(0, fragsNow - pastRecord);
   const nextFragmentIncreasesLevel =
     canAnticipateRecordBreak &&
-    Math.floor(nextExpectedTotal / 10) > Math.floor(currentExpectedTotal / 10);
+    getFishLevel(nextExpectedTotal) > getFishLevel(currentExpectedTotal);
 
   // If a previous anticipation spot was active for this fish type and is now captured by this fragment:
   if (state.anticipationSpot && state.anticipationSpot.active && state.anticipationSpot.fishType === fishType) {
@@ -271,8 +271,7 @@ export function triggerFragmentRecordJuice(
   // Calculate if a new fish level of that type would be achieved if the player successfully completes the level:
   // Corner cases per user specification:
   // Only play this when the expected fragments equal the exact amount needed to increase a fish by a level!
-  // (e.g. if record broken by 1, and fish was 49, expected 50: play juice. If broken by 2, expected 51: don't play.
-  //  If broken by 11, and fish was 49, expected 60: play juice again!)
+  // (e.g. Level 1 = 5 fragments, Level 2 = 15 fragments, Level 3 = 25 fragments...)
   let levelGainedData: {
     newFishLevel: number;
     levelsGained: number;
@@ -282,12 +281,13 @@ export function triggerFragmentRecordJuice(
   if (isBeyondRecord) {
     const delta = fragsNow - pastRecord;
     const expectedTotal = baseTotalFragments + delta;
-    const isExactNewLevelThreshold = (expectedTotal % 10 === 0) && (expectedTotal > baseTotalFragments);
+    const baseLevel = getFishLevel(baseTotalFragments);
+    const newLevel = getFishLevel(expectedTotal);
+    const levelsGained = newLevel - baseLevel;
+    const exactThresholdForNewLevel = newLevel >= 1 ? 5 + (newLevel - 1) * 10 : 0;
+    const isExactNewLevelThreshold = levelsGained > 0 && expectedTotal === exactThresholdForNewLevel;
 
     if (isExactNewLevelThreshold) {
-      const baseLevel = Math.floor(baseTotalFragments / 10);
-      const newLevel = Math.floor(expectedTotal / 10);
-      const levelsGained = newLevel - baseLevel;
       levelGainedData = {
         newFishLevel: newLevel,
         levelsGained,
