@@ -1,5 +1,6 @@
 import { AllReefFragments, BirdSkin, FishFragmentCounts, FishType, GameDifficulty, GameStats, MedalType, ReefProgress } from '../types';
 import { DEFAULT_FISH_SKINS } from './physics';
+import { areAllFishUnlocked } from './fish';
 
 const STORAGE_KEY = 'flappy_bird_stats_v1';
 const REEF_PROGRESS_KEY = 'flappy_reef_progress_v1';
@@ -191,13 +192,17 @@ export function loadReefProgress(): ReefProgress {
     const unlocked = computeUnlockedReef(clearedReefs, isShellUnlocked);
     const current = Math.max(1, Math.min(unlocked, Number(parsed.currentReef) || 1));
 
+    const frags = getTotalFragmentsByFish(loadReefFragments());
+    const allFishActivated = areAllFishUnlocked(frags);
+    const tidesongUnlocked = Boolean(parsed.tidesongUnlocked && allFishActivated);
+
     const progress: ReefProgress = {
       unlockedReef: unlocked,
       currentReef: current,
       clearedReefs,
       gulfStreamUnlocked: Boolean(parsed.gulfStreamUnlocked),
       atlantisGateUnlocked: Boolean(parsed.atlantisGateUnlocked),
-      tidesongUnlocked: Boolean(parsed.tidesongUnlocked),
+      tidesongUnlocked,
       coralSeahorseUnlocked: Boolean(parsed.coralSeahorseUnlocked),
       currentFastReefsInRow: Math.max(0, Number(parsed.currentFastReefsInRow) || 0),
       bestFastReefsInRow: Math.max(0, Number(parsed.bestFastReefsInRow) || 0),
@@ -205,8 +210,12 @@ export function loadReefProgress(): ReefProgress {
       bestSeahorseReefsInRow: Math.max(0, Number(parsed.bestSeahorseReefsInRow) || 0),
     };
 
-    // Sanitize and persist corrected progress if localStorage had invalid/unearned unlockedReef
-    if (Number(parsed.unlockedReef) !== unlocked || Number(parsed.currentReef) !== current) {
+    // Sanitize and persist corrected progress if localStorage had invalid/unearned unlockedReef or tidesongUnlocked
+    if (
+      Number(parsed.unlockedReef) !== unlocked ||
+      Number(parsed.currentReef) !== current ||
+      Boolean(parsed.tidesongUnlocked) !== tidesongUnlocked
+    ) {
       try {
         localStorage.setItem(REEF_PROGRESS_KEY, JSON.stringify(progress));
       } catch {
@@ -304,11 +313,7 @@ export function completeReefLevel(
 
   const allFrags = loadReefFragments();
   const totalFrags = getTotalFragmentsByFish(allFrags);
-  const allFishActivated =
-    (totalFrags.pufferfish || 0) >= 5 &&
-    (totalFrags.clownfish || 0) >= 5 &&
-    (totalFrags.singray || 0) >= 5 &&
-    (totalFrags.seahorse || 0) >= 5;
+  const allFishActivated = areAllFishUnlocked(totalFrags);
 
   const tidesongUnlockedNow = Boolean(
     allFishActivated &&
@@ -438,7 +443,7 @@ export function loadGameStats(): GameStats {
       dateSet: parsed.dateSet || undefined,
       gulfStreamUnlocked: Boolean(parsed.gulfStreamUnlocked),
       atlantisGateUnlocked: Boolean(parsed.atlantisGateUnlocked),
-      tidesongUnlocked: Boolean(parsed.tidesongUnlocked),
+      tidesongUnlocked: Boolean(parsed.tidesongUnlocked && areAllFishUnlocked(getTotalFragmentsByFish(loadReefFragments()))),
       coralSeahorseUnlocked: Boolean(parsed.coralSeahorseUnlocked),
       currentFastReefsInRow: Math.max(0, Number(parsed.currentFastReefsInRow) || 0),
       bestFastReefsInRow: Math.max(0, Number(parsed.bestFastReefsInRow) || 0),
@@ -707,3 +712,23 @@ export function getMedal(score: number): MedalType {
   if (score >= 10) return 'bronze';
   return 'none';
 }
+
+export function saveTidesongUnlocked(): void {
+  try {
+    const rawProg = localStorage.getItem(REEF_PROGRESS_KEY);
+    if (rawProg) {
+      const parsed = JSON.parse(rawProg);
+      parsed.tidesongUnlocked = true;
+      localStorage.setItem(REEF_PROGRESS_KEY, JSON.stringify(parsed));
+    }
+    const rawStats = localStorage.getItem(STORAGE_KEY);
+    if (rawStats) {
+      const parsed = JSON.parse(rawStats);
+      parsed.tidesongUnlocked = true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    }
+  } catch {
+    // fallback
+  }
+}
+

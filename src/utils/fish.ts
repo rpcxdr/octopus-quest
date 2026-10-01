@@ -109,6 +109,21 @@ export function isFishUnlockedByFragments(fishId: FishType, totalFragments: numb
 }
 
 /**
+ * Checks if all fish in the ecosystem have been unlocked.
+ * Octopus starts unlocked by default.
+ * Pufferfish, Clownfish, Stingray, and Seahorse each unlock at Level 1 (>= 5 fragments).
+ */
+export function areAllFishUnlocked(fragments?: Partial<Record<FishType, number>>): boolean {
+  if (!fragments) return false;
+  return (
+    (fragments.pufferfish || 0) >= 5 &&
+    (fragments.clownfish || 0) >= 5 &&
+    (fragments.singray || 0) >= 5 &&
+    (fragments.seahorse || 0) >= 5
+  );
+}
+
+/**
  * Calculates progress toward the next fish level.
  * Level 1 requires 5 fragments (0..4 in level, needed: 5 - count, max: 5).
  * Level 2+ requires 10 fragments each (0..9 in level, needed: 10 - count, max: 10).

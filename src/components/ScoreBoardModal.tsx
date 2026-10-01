@@ -114,19 +114,28 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
           isGameOver={true}
         />
 
-        {/* Reused Fragment Records Summary Layout with Lost Achievements Overlay (only if fragments were collected) */}
-        {hasCollectedFragments && (
+        {/* Reused Fragment Records Summary Layout with Lost Achievements Overlay (if fragments were collected or rune was lost) */}
+        {(hasCollectedFragments || (newlyUnlockedBadges && newlyUnlockedBadges.length > 0)) && (
           <div className="w-full relative my-1 overflow-visible z-30">
-            <ReefClearedRecordColumns
-              attemptFragments={attemptFragments}
-              reefMaxFragments={reefMaxFragments}
-              totalFragmentsByFish={totalFragmentsByFish}
-              priorTotalFragmentsByFish={priorTotalFragmentsByFish}
-              isGameOver={true}
-            />
+            {hasCollectedFragments && (
+              <ReefClearedRecordColumns
+                attemptFragments={attemptFragments}
+                reefMaxFragments={reefMaxFragments}
+                totalFragmentsByFish={totalFragmentsByFish}
+                priorTotalFragmentsByFish={priorTotalFragmentsByFish}
+                isGameOver={true}
+              />
+            )}
 
-            {/* Emotionally impactful 0.5s animation overlay showing you have lost all new records */}
-            {(hasNewRecords || hasCollectedFragments) && (
+            {/* Big Achievement Celebration Animation (if a new badge was unlocked/lost on this level) - Rewards Lost sits on top */}
+            {newlyUnlockedBadges && newlyUnlockedBadges.length > 0 && (
+              <div className="w-full relative z-10 my-2">
+                <BadgeAchievementCelebration badges={newlyUnlockedBadges} isGameOver={true} />
+              </div>
+            )}
+
+            {/* Emotionally impactful 0.5s animation overlay showing you have lost all new records and rune rewards */}
+            {(hasNewRecords || hasCollectedFragments || (newlyUnlockedBadges && newlyUnlockedBadges.length > 0)) && (
               <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none overflow-hidden rounded-2xl">
                 {/* Crimson flash pulse across the achievements container */}
                 <motion.div
@@ -176,13 +185,6 @@ export const ScoreBoardModal: React.FC<ScoreBoardModalProps> = ({
                 </motion.div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Big Achievement Celebration Animation (if a new badge was unlocked on this level) - Rewards Lost sits on top */}
-        {newlyUnlockedBadges && newlyUnlockedBadges.length > 0 && (
-          <div className="w-full relative z-10 my-2">
-            <BadgeAchievementCelebration badges={newlyUnlockedBadges} isGameOver={true} />
           </div>
         )}
 

@@ -1,5 +1,6 @@
 import { BadgeId, FishType, GameBadge, GameStats, ReefProgress } from '../types';
 import { getTotalFragmentsByFish } from './storage';
+import { areAllFishUnlocked } from './fish';
 
 export interface BadgeDefinition {
   id: BadgeId;
@@ -146,16 +147,8 @@ export function isBadgeUnlocked(
         (stats?.currentSeahorseReefsInRow !== undefined && stats.currentSeahorseReefsInRow >= 10)
       );
     case 'tidesong': {
-      if (reefProgress?.tidesongUnlocked || stats?.tidesongUnlocked) {
-        return true;
-      }
       const frags = totalFragmentsByFish || getTotalFragmentsByFish();
-      return (
-        (frags.pufferfish || 0) >= 5 &&
-        (frags.clownfish || 0) >= 5 &&
-        (frags.singray || 0) >= 5 &&
-        (frags.seahorse || 0) >= 5
-      );
+      return areAllFishUnlocked(frags);
     }
     default:
       return false;
