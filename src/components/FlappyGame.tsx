@@ -103,7 +103,7 @@ import {
   FragmentRecordJuiceState,
 } from '../utils/fragmentRecordJuice';
 import { drawReefIntroTitle } from '../utils/reefIntroRenderer';
-import { getBaseFragments, BADGES, BadgeDefinition, isBadgeUnlocked } from '../utils/badges';
+import { getBaseFragments, BADGES, BadgeDefinition, isBadgeUnlocked, getRunePowersLostOnGameOver } from '../utils/badges';
 import { StartScreenOverlay } from './StartScreenOverlay';
 import { ScoreBoardModal } from './ScoreBoardModal';
 import { StatsModal } from './StatsModal';
@@ -191,6 +191,7 @@ export const FlappyGame: React.FC = () => {
 
   // Track badges and fish unlocked before level starts to detect new achievements earned during the run
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<BadgeDefinition[]>([]);
+  const [lostBadgesOnGameOver, setLostBadgesOnGameOver] = useState<BadgeDefinition[]>([]);
   const [showRuneAchievementModal, setShowRuneAchievementModal] = useState(false);
   const badgesBeforeLevelRef = useRef<BadgeId[]>(
     BADGES.filter((b) => isBadgeUnlocked(b.id, initialStats.totalScore, initialProgress, initialStats, initialTotalFrags)).map((b) => b.id)
@@ -502,6 +503,7 @@ export const FlappyGame: React.FC = () => {
       isBadgeUnlocked(b.id, stats.totalScore, updated, stats, totalFragmentsByFish)
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
+    setLostBadgesOnGameOver([]);
     setShowRuneAchievementModal(false);
     const config = getConfig(s.difficulty, safeReef);
     s.reefColumns = generateReefColumns(safeReef, config, s.difficulty);
@@ -550,6 +552,7 @@ export const FlappyGame: React.FC = () => {
     ).map((b) => b.id);
     allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
     setNewlyUnlockedBadges([]);
+    setLostBadgesOnGameOver([]);
     setShowRuneAchievementModal(false);
     setGameState('IDLE');
   }, [allReefFragments, stats.totalScore]);
@@ -612,6 +615,7 @@ export const FlappyGame: React.FC = () => {
     ).map((b) => b.id);
     allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
     setNewlyUnlockedBadges([]);
+    setLostBadgesOnGameOver([]);
     setShowRuneAchievementModal(false);
     const config = getConfig(s.difficulty, safeNext);
     s.reefColumns = generateReefColumns(safeNext, config, s.difficulty);
@@ -707,6 +711,7 @@ export const FlappyGame: React.FC = () => {
       ).map((b) => b.id);
       allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
       setNewlyUnlockedBadges([]);
+      setLostBadgesOnGameOver([]);
       setShowRuneAchievementModal(false);
       s.gameState = 'PLAYING';
       setGameState('PLAYING');
@@ -814,6 +819,9 @@ export const FlappyGame: React.FC = () => {
     setPriorReefMaxFragments(null);
     setLastClearTime(undefined);
     setCurrentFastStreak(0);
+    setNewlyUnlockedBadges([]);
+    setLostBadgesOnGameOver([]);
+    setShowRuneAchievementModal(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('IDLE');
   }, [allReefFragments, getConfig, totalFragmentsByFish, stats.totalScore, reefProgress, stats]);
@@ -909,6 +917,7 @@ export const FlappyGame: React.FC = () => {
     ).map((b) => b.id);
     allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
     setNewlyUnlockedBadges([]);
+    setLostBadgesOnGameOver([]);
     setShowRuneAchievementModal(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('PLAYING');
@@ -980,6 +989,10 @@ export const FlappyGame: React.FC = () => {
           return;
         }
         if (s.gameState === 'GAMEOVER') {
+          // If Rune Achievement modal is open, do not trigger replay from FlappyGame
+          if (showRuneAchievementModal) {
+            return;
+          }
           handleReplayLevel();
         } else if (s.gameState === 'REEF_CLEARED') {
           // If Rune Achievement modal is open, do not trigger reef progression from FlappyGame
@@ -1397,42 +1410,39 @@ export const FlappyGame: React.FC = () => {
               setStats(updatedStats);
               setIsNewHighScore(isNewHigh);
 
-              // Check if any new badges were unlocked before dying on this level run (e.g. total score milestone)
+              // Check which badges were already unlocked before this level started
               const priorBadges = badgesBeforeLevelRef.current;
 
-              // Check if Tidesong would have been achieved had the player completed the level:
-              // It should only appear on Swim Again if, before the level, the player had not unlocked all of the fish,
-              // and after the level (from failing) the player would have achieved the rune goal.
-              const wereAllFishUnlockedBefore = allFishUnlockedBeforeLevelRef.current;
-              let tidesongLostThisRun = false;
-              if (!wereAllFishUnlockedBefore) {
-                const currentReef = s.currentReef || reefProgress.currentReef;
-                const hypotheticalAll = { ...allReefFragments };
-                const existingReef = hypotheticalAll[currentReef] || createEmptyFragmentCounts();
-                const updatedReef: FishFragmentCounts = {
-                  octopus: Math.max(existingReef.octopus || 0, s.currentAttemptFragments.octopus || 0),
-                  pufferfish: Math.max(existingReef.pufferfish || 0, s.currentAttemptFragments.pufferfish || 0),
-                  clownfish: Math.max(existingReef.clownfish || 0, s.currentAttemptFragments.clownfish || 0),
-                  singray: Math.max(existingReef.singray || 0, s.currentAttemptFragments.singray || 0),
-                  seahorse: Math.max(existingReef.seahorse || 0, s.currentAttemptFragments.seahorse || 0),
-                };
-                hypotheticalAll[currentReef] = updatedReef;
-                const hypotheticalTotals = getTotalFragmentsByFish(hypotheticalAll);
-                if (areAllFishUnlocked(hypotheticalTotals)) {
-                  tidesongLostThisRun = true;
-                }
-              }
-
-              const earnedBadges = BADGES.filter((b) => {
-                if (b.id === 'tidesong') {
-                  return tidesongLostThisRun;
-                }
-                const unlockedNow = isBadgeUnlocked(b.id, updatedStats.totalScore, reefProgress, updatedStats, totalFragmentsByFish);
-                return unlockedNow && !priorBadges.includes(b.id);
+              // Calculate which rune powers would have been earned had the player finished the level,
+              // but were lost due to crashing during the level run.
+              // (e.g. Nautilus on Reef 5, Diamond on Reef 50, Tidesong when all fish would unlock, etc.)
+              const lostBadges = getRunePowersLostOnGameOver({
+                currentReef: s.currentReef || reefProgress.currentReef,
+                priorBadges,
+                reefProgress,
+                stats: updatedStats,
+                reefElapsedTime: s.reefElapsedTime,
+                selectedFish: s.selectedFish,
+                reefsClearedInRun: s.reefsClearedInRun,
+                allReefFragments,
+                attemptFragments: s.currentAttemptFragments,
+                wereAllFishUnlockedBefore: allFishUnlockedBeforeLevelRef.current,
               });
-              setNewlyUnlockedBadges(earnedBadges);
-              if (earnedBadges.length > 0) {
+              setLostBadgesOnGameOver(lostBadges);
+
+              // Check if Coral Rune was achieved on this run (since total points progress is preserved):
+              // If achieved, show the Rune Achievement Modal FIRST before the Swim Again modal!
+              const coralBadge = BADGES.find((b) => b.id === 'coral');
+              const isCoralNewlyUnlocked =
+                updatedStats.totalScore >= 10 && !priorBadges.includes('coral') && !!coralBadge;
+
+              if (isCoralNewlyUnlocked && coralBadge) {
+                setNewlyUnlockedBadges([coralBadge]);
+                setShowRuneAchievementModal(true);
                 sound.playFishLevelUpSplash();
+              } else {
+                setNewlyUnlockedBadges([]);
+                setShowRuneAchievementModal(false);
               }
 
               if (isNewHigh && s.score > 0) {
@@ -1953,8 +1963,19 @@ export const FlappyGame: React.FC = () => {
         />
       )}
 
-      {/* Game Over Score Board Modal */}
-      {gameState === 'GAMEOVER' && (
+      {/* Rune Power Achievement Modal (Precedes Swim Again Modal if Coral Rune Power was achieved this level) */}
+      {gameState === 'GAMEOVER' && showRuneAchievementModal && newlyUnlockedBadges.some((b) => b.id === 'coral') && (
+        <RuneAchievementModal
+          isOpen={true}
+          badges={newlyUnlockedBadges.filter((b) => b.id === 'coral')}
+          onContinue={() => {
+            setShowRuneAchievementModal(false);
+          }}
+        />
+      )}
+
+      {/* Game Over Score Board Modal (Swim Again Modal) */}
+      {gameState === 'GAMEOVER' && (!showRuneAchievementModal || !newlyUnlockedBadges.some((b) => b.id === 'coral')) && (
         <ScoreBoardModal
           score={score}
           reefsClearedInRun={stateRef.current.reefsClearedInRun}
@@ -1971,7 +1992,7 @@ export const FlappyGame: React.FC = () => {
           reefMaxFragments={getReefMaxFragments(stateRef.current.currentReef || reefProgress.currentReef)}
           totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
           priorTotalFragmentsByFish={priorTotalFragments || undefined}
-          newlyUnlockedBadges={newlyUnlockedBadges}
+          newlyUnlockedBadges={lostBadgesOnGameOver}
           onRestart={handleReplayLevel}
           onOpenStats={() => setShowStatsModal(true)}
           onGoHome={handleRestart}
@@ -2011,7 +2032,6 @@ export const FlappyGame: React.FC = () => {
           reefMaxFragments={getReefMaxFragments(clearedReefLevel)}
           totalFragmentsByFish={getTotalFragmentsByFish(allReefFragments)}
           priorTotalFragmentsByFish={priorTotalFragments || undefined}
-          newlyUnlockedBadges={newlyUnlockedBadges}
           clearTimeSeconds={lastClearTime}
           currentFastStreak={currentFastStreak}
           onEquipFish={handleSelectFish}

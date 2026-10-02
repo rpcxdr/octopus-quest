@@ -1,5 +1,5 @@
-import { BadgeId, FishType, GameBadge, GameStats, ReefProgress } from '../types';
-import { getTotalFragmentsByFish } from './storage';
+import { AllReefFragments, BadgeId, FishFragmentCounts, FishType, GameBadge, GameStats, ReefProgress } from '../types';
+import { getTotalFragmentsByFish, createEmptyFragmentCounts } from './storage';
 import { areAllFishUnlocked } from './fish';
 
 export interface BadgeDefinition {
@@ -610,3 +610,120 @@ export function getNextBadgeGoal(
 
   return selected ? { badge: selected.badge, progress: selected.progress } : null;
 }
+
+/**
+ * Calculates which Rune Powers would have been earned had the player finished the level,
+ * but were lost due to failing/crashing during the level run.
+ * Only these lost rune powers should be displayed on the Swim Again modal.
+ */
+export function getRunePowersLostOnGameOver({
+  currentReef,
+  priorBadges,
+  reefProgress,
+  stats,
+  reefElapsedTime,
+  selectedFish,
+  reefsClearedInRun,
+  allReefFragments,
+  attemptFragments,
+  wereAllFishUnlockedBefore,
+}: {
+  currentReef: number;
+  priorBadges: BadgeId[];
+  reefProgress: ReefProgress;
+  stats: GameStats;
+  reefElapsedTime: number;
+  selectedFish: FishType;
+  reefsClearedInRun: number;
+  allReefFragments: AllReefFragments;
+  attemptFragments: FishFragmentCounts;
+  wereAllFishUnlockedBefore: boolean;
+}): BadgeDefinition[] {
+  const lostBadges: BadgeDefinition[] = [];
+
+  for (const badge of BADGES) {
+    // If the player already unlocked this badge before the level started,
+    // it was already earned and cannot be a lost achievement on this level.
+    if (priorBadges.includes(badge.id)) {
+      continue;
+    }
+
+    let wouldHaveEarned = false;
+
+    switch (badge.id) {
+      case 'nautilus':
+        // Nautilus is earned by passing Reef 5.
+        // It only appears on Swim Again if the player fails to complete Reef 5.
+        wouldHaveEarned = currentReef === 5;
+        break;
+
+      case 'diamond':
+        // Diamond is earned by passing Reef 50.
+        // It only appears on Swim Again if the player fails to complete Reef 50.
+        wouldHaveEarned = currentReef === 50;
+        break;
+
+      case 'gulf_stream': {
+        // Gulf Stream: Speed run 10 reefs in a row, 10s each.
+        // Would have been earned if player entered with at least 9 fast reefs in a row
+        // and was on pace (<= 10.05s) on this reef.
+        const prevFast = reefProgress?.currentFastReefsInRow || 0;
+        const isUnder10s = reefElapsedTime > 0 && reefElapsedTime <= 10.05;
+        wouldHaveEarned = prevFast >= 9 && isUnder10s;
+        break;
+      }
+
+      case 'coral_seahorse': {
+        // Coral Seahorse: Pass 10 reefs in a row using the seahorse.
+        // Would have been earned if player is swimming as seahorse and entered with >= 9 seahorse reefs.
+        const prevSeahorse = reefProgress?.currentSeahorseReefsInRow || 0;
+        wouldHaveEarned = selectedFish === 'seahorse' && prevSeahorse >= 9;
+        break;
+      }
+
+      case 'atlantis_gate': {
+        // Atlantis Gate: Complete all 50 reefs in order without dying.
+        // Would have been earned if player was on Reef 50 with 49 reefs cleared without dying.
+        wouldHaveEarned = currentReef === 50 && reefsClearedInRun >= 49;
+        break;
+      }
+
+      case 'tidesong': {
+        // Tidesong: Activate all of the fish.
+        // Would have been earned if player did not have all fish before,
+        // but collecting this attempt's fragments would have unlocked all fish.
+        if (!wereAllFishUnlockedBefore) {
+          const hypotheticalAll = { ...allReefFragments };
+          const existingReef = hypotheticalAll[currentReef] || createEmptyFragmentCounts();
+          const updatedReef: FishFragmentCounts = {
+            octopus: Math.max(existingReef.octopus || 0, attemptFragments.octopus || 0),
+            pufferfish: Math.max(existingReef.pufferfish || 0, attemptFragments.pufferfish || 0),
+            clownfish: Math.max(existingReef.clownfish || 0, attemptFragments.clownfish || 0),
+            singray: Math.max(existingReef.singray || 0, attemptFragments.singray || 0),
+            seahorse: Math.max(existingReef.seahorse || 0, attemptFragments.seahorse || 0),
+          };
+          hypotheticalAll[currentReef] = updatedReef;
+          const hypotheticalTotals = getTotalFragmentsByFish(hypotheticalAll);
+          wouldHaveEarned = areAllFishUnlocked(hypotheticalTotals);
+        }
+        break;
+      }
+
+      case 'coral':
+      case 'shell':
+      default:
+        // Total points progress is permanently preserved across runs.
+        // Coral is celebrated in its own modal preceding Swim Again if reached,
+        // and is never stamped as a lost reward.
+        wouldHaveEarned = false;
+        break;
+    }
+
+    if (wouldHaveEarned) {
+      lostBadges.push(badge);
+    }
+  }
+
+  return lostBadges;
+}
+

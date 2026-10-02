@@ -5,8 +5,6 @@ import { FishFragmentCounts, FishType, FishUnlockTier, GameDifficulty } from '..
 import { getReefZoneName, TOTAL_REEF_LEVELS } from '../utils/reef';
 import { ReefClearedRecordColumns } from './RecordColumnPodView';
 import { StreakStatsBar } from './StreakStatsBar';
-import { BadgeDefinition } from '../utils/badges';
-import { BadgeAchievementCelebration } from './BadgeAchievementCelebration';
 
 interface ReefClearedModalProps {
   isOpen: boolean;
@@ -25,7 +23,6 @@ interface ReefClearedModalProps {
   reefMaxFragments?: FishFragmentCounts;
   totalFragmentsByFish?: Record<FishType, number>;
   priorTotalFragmentsByFish?: Record<FishType, number>;
-  newlyUnlockedBadges?: BadgeDefinition[];
   clearTimeSeconds?: number;
   currentFastStreak?: number;
   onNextReef: () => void;
@@ -52,7 +49,6 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
   reefMaxFragments,
   totalFragmentsByFish,
   priorTotalFragmentsByFish,
-  newlyUnlockedBadges,
   clearTimeSeconds,
   currentFastStreak,
   onNextReef,
@@ -174,13 +170,6 @@ export const ReefClearedModal: React.FC<ReefClearedModalProps> = ({
               priorTotalFragmentsByFish={priorTotalFragmentsByFish}
             />
           </div>
-
-          {/* Newly Achieved Rune Power Celebration */}
-          {newlyUnlockedBadges && newlyUnlockedBadges.length > 0 && (
-            <div className="w-full relative z-20 my-2">
-              <BadgeAchievementCelebration badges={newlyUnlockedBadges} isGameOver={false} />
-            </div>
-          )}
 
           {/* Newly Unlocked Fish Celebration */}
           {unlockedFish && (
