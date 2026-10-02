@@ -564,8 +564,9 @@ export function getBadgeVisual(badgeId: BadgeId): {
 /**
  * Finds the next rune/badge goal based on ranking criteria:
  * (1) Skip it if it is completed
- * (2) The closer to 100% the higher the score
- * (3) The closer to the beginning of the list the higher the score
+ * (2) Always show Coral and Shell before Tidesong, even though Tidesong starts with 1/5 progress
+ * (3) The closer to 100% the higher the score
+ * (4) The closer to the beginning of the list the higher the score
  */
 export function getNextBadgeGoal(
   totalPoints: number,
@@ -576,6 +577,13 @@ export function getNextBadgeGoal(
   badge: BadgeDefinition;
   progress: BadgeProgress;
 } | null {
+  // Check if Coral or Shell are incomplete
+  const coralProgress = getBadgeProgress('coral', totalPoints, reefProgress, stats, totalFragmentsByFish);
+  const isCoralIncomplete = !coralProgress.isAchieved && coralProgress.percent < 100;
+
+  const shellProgress = getBadgeProgress('shell', totalPoints, reefProgress, stats, totalFragmentsByFish);
+  const isShellIncomplete = !shellProgress.isAchieved && shellProgress.percent < 100;
+
   let selected: { badge: BadgeDefinition; progress: BadgeProgress; score: number; index: number } | null = null;
 
   for (let i = 0; i < BADGES.length; i++) {
@@ -584,6 +592,11 @@ export function getNextBadgeGoal(
 
     // Skip if completed
     if (progress.isAchieved || progress.percent >= 100) {
+      continue;
+    }
+
+    // Always show Coral and Shell before Tidesong
+    if (badge.id === 'tidesong' && (isCoralIncomplete || isShellIncomplete)) {
       continue;
     }
 
