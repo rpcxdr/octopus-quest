@@ -103,7 +103,7 @@ import {
   FragmentRecordJuiceState,
 } from '../utils/fragmentRecordJuice';
 import { drawReefIntroTitle } from '../utils/reefIntroRenderer';
-import { getBaseFragments, BADGES, BadgeDefinition, isBadgeUnlocked, getRunePowersLostOnGameOver } from '../utils/badges';
+import { getBaseFragments, BADGES, BadgeDefinition, isBadgeUnlocked, getRunePowersLostOnGameOver, getBadgeProgress, BadgeProgress } from '../utils/badges';
 import { StartScreenOverlay } from './StartScreenOverlay';
 import { ScoreBoardModal } from './ScoreBoardModal';
 import { StatsModal } from './StatsModal';
@@ -193,6 +193,9 @@ export const FlappyGame: React.FC = () => {
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<BadgeDefinition[]>([]);
   const [lostBadgesOnGameOver, setLostBadgesOnGameOver] = useState<BadgeDefinition[]>([]);
   const [showRuneAchievementModal, setShowRuneAchievementModal] = useState(false);
+  const [runeModalIsUnlocked, setRuneModalIsUnlocked] = useState(true);
+  const [runeModalProgress, setRuneModalProgress] = useState<BadgeProgress | undefined>(undefined);
+  const [runeModalOldProgress, setRuneModalOldProgress] = useState<BadgeProgress | undefined>(undefined);
   const badgesBeforeLevelRef = useRef<BadgeId[]>(
     BADGES.filter((b) => isBadgeUnlocked(b.id, initialStats.totalScore, initialProgress, initialStats, initialTotalFrags)).map((b) => b.id)
   );
@@ -200,13 +203,31 @@ export const FlappyGame: React.FC = () => {
     areAllFishUnlocked(initialTotalFrags)
   );
 
-  // Keep badgesBeforeLevelRef and allFishUnlockedBeforeLevelRef in sync while player is idle on the home screen
+  const recordAllBadgeProgress = (
+    totScore: number,
+    reefProg?: ReefProgress,
+    st?: GameStats,
+    frags?: Partial<Record<FishType, number>>
+  ): Partial<Record<BadgeId, BadgeProgress>> => {
+    const map: Partial<Record<BadgeId, BadgeProgress>> = {};
+    for (const b of BADGES) {
+      map[b.id] = getBadgeProgress(b.id, totScore, reefProg, st, frags);
+    }
+    return map;
+  };
+
+  const runeProgressBeforeLevelRef = useRef<Partial<Record<BadgeId, BadgeProgress>>>(
+    recordAllBadgeProgress(initialStats.totalScore, initialProgress, initialStats, initialTotalFrags)
+  );
+
+  // Keep badgesBeforeLevelRef and runeProgressBeforeLevelRef in sync while player is idle on the home screen
   useEffect(() => {
     if (gameState === 'IDLE') {
       badgesBeforeLevelRef.current = BADGES.filter((b) =>
         isBadgeUnlocked(b.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish)
       ).map((b) => b.id);
       allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(totalFragmentsByFish);
+      runeProgressBeforeLevelRef.current = recordAllBadgeProgress(stats.totalScore, reefProgress, stats, totalFragmentsByFish);
     }
   }, [gameState, stats.totalScore, reefProgress, stats, totalFragmentsByFish]);
 
@@ -504,7 +525,11 @@ export const FlappyGame: React.FC = () => {
     ).map((b) => b.id);
     setNewlyUnlockedBadges([]);
     setLostBadgesOnGameOver([]);
+    setRuneModalIsUnlocked(true);
+    setRuneModalProgress(undefined);
+    setRuneModalOldProgress(undefined);
     setShowRuneAchievementModal(false);
+    runeProgressBeforeLevelRef.current = recordAllBadgeProgress(stats.totalScore, updated, stats, totalFragmentsByFish);
     const config = getConfig(s.difficulty, safeReef);
     s.reefColumns = generateReefColumns(safeReef, config, s.difficulty);
     s.columnsSpawned = 0;
@@ -553,7 +578,11 @@ export const FlappyGame: React.FC = () => {
     allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
     setNewlyUnlockedBadges([]);
     setLostBadgesOnGameOver([]);
+    setRuneModalIsUnlocked(true);
+    setRuneModalProgress(undefined);
+    setRuneModalOldProgress(undefined);
     setShowRuneAchievementModal(false);
+    runeProgressBeforeLevelRef.current = recordAllBadgeProgress(stats.totalScore, updated, stats, totalFragmentsByFish);
     setGameState('IDLE');
   }, [allReefFragments, stats.totalScore]);
 
@@ -616,7 +645,11 @@ export const FlappyGame: React.FC = () => {
     allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
     setNewlyUnlockedBadges([]);
     setLostBadgesOnGameOver([]);
+    setRuneModalIsUnlocked(true);
+    setRuneModalProgress(undefined);
+    setRuneModalOldProgress(undefined);
     setShowRuneAchievementModal(false);
+    runeProgressBeforeLevelRef.current = recordAllBadgeProgress(currentStats.totalScore, updated, currentStats, totalFragmentsByFish);
     const config = getConfig(s.difficulty, safeNext);
     s.reefColumns = generateReefColumns(safeNext, config, s.difficulty);
     s.columnsSpawned = 0;
@@ -712,7 +745,11 @@ export const FlappyGame: React.FC = () => {
       allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
       setNewlyUnlockedBadges([]);
       setLostBadgesOnGameOver([]);
+      setRuneModalIsUnlocked(true);
+      setRuneModalProgress(undefined);
+      setRuneModalOldProgress(undefined);
       setShowRuneAchievementModal(false);
+      runeProgressBeforeLevelRef.current = recordAllBadgeProgress(stats.totalScore, reefProgress, stats, totalFragmentsByFish);
       s.gameState = 'PLAYING';
       setGameState('PLAYING');
       setNewlyUnlockedFish(null);
@@ -821,6 +858,8 @@ export const FlappyGame: React.FC = () => {
     setCurrentFastStreak(0);
     setNewlyUnlockedBadges([]);
     setLostBadgesOnGameOver([]);
+    setRuneModalIsUnlocked(true);
+    setRuneModalProgress(undefined);
     setShowRuneAchievementModal(false);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('IDLE');
@@ -918,7 +957,11 @@ export const FlappyGame: React.FC = () => {
     allFishUnlockedBeforeLevelRef.current = areAllFishUnlocked(getTotalFragmentsByFish(allReefFragments));
     setNewlyUnlockedBadges([]);
     setLostBadgesOnGameOver([]);
+    setRuneModalIsUnlocked(true);
+    setRuneModalProgress(undefined);
+    setRuneModalOldProgress(undefined);
     setShowRuneAchievementModal(false);
+    runeProgressBeforeLevelRef.current = recordAllBadgeProgress(stats.totalScore, reefProgress, stats, totalFragmentsByFish);
     setAbilitySnapshot(s.fishBehavior.getAbilityState());
     setGameState('PLAYING');
   }, [allReefFragments, stats.totalScore, reefProgress]);
@@ -1350,10 +1393,68 @@ export const FlappyGame: React.FC = () => {
                     (b.id === 'coral_seahorse' && coralSeahorseUnlockedNow);
                   return unlockedNow && !priorBadges.includes(b.id);
                 });
-                setNewlyUnlockedBadges(earnedBadges);
                 if (earnedBadges.length > 0) {
+                  const primaryBadge = earnedBadges[0];
+                  const oldProg = runeProgressBeforeLevelRef.current[primaryBadge.id] || getBadgeProgress(primaryBadge.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+                  const newProg = getBadgeProgress(primaryBadge.id, updatedStats.totalScore, updatedReefProgress, updatedStats, newFragsOnClear);
+                  setNewlyUnlockedBadges(earnedBadges);
+                  setRuneModalIsUnlocked(true);
+                  setRuneModalProgress(newProg);
+                  setRuneModalOldProgress(oldProg);
                   sound.playFishLevelUpSplash();
                   setShowRuneAchievementModal(true);
+                } else {
+                  // Check if progress has increased on quest goals that do not require clearing the level (Coral and Shell)
+                  const coralBadge = BADGES.find((b) => b.id === 'coral');
+                  const shellBadge = BADGES.find((b) => b.id === 'shell');
+
+                  const coralProgressBefore = runeProgressBeforeLevelRef.current.coral || getBadgeProgress('coral', stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+                  const shellProgressBefore = runeProgressBeforeLevelRef.current.shell || getBadgeProgress('shell', stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+
+                  const coralProgressAfter = getBadgeProgress(
+                    'coral',
+                    updatedStats.totalScore,
+                    updatedReefProgress,
+                    updatedStats,
+                    newFragsOnClear
+                  );
+                  const shellProgressAfter = getBadgeProgress(
+                    'shell',
+                    updatedStats.totalScore,
+                    updatedReefProgress,
+                    updatedStats,
+                    newFragsOnClear
+                  );
+
+                  // (2) If Coral has not been completed, but Coral progress has increased:
+                  const isCoralProgressIncreased =
+                    !coralProgressAfter.isAchieved && coralProgressAfter.current > coralProgressBefore.current;
+
+                  // (3) If Shell has not been completed, but Coral has been completed, and Shell progress has increased:
+                  const isShellProgressIncreased =
+                    coralProgressAfter.isAchieved &&
+                    !shellProgressAfter.isAchieved &&
+                    shellProgressAfter.current > shellProgressBefore.current;
+
+                  if (isCoralProgressIncreased && coralBadge) {
+                    setNewlyUnlockedBadges([coralBadge]);
+                    setRuneModalIsUnlocked(false);
+                    setRuneModalProgress(coralProgressAfter);
+                    setRuneModalOldProgress(coralProgressBefore);
+                    setShowRuneAchievementModal(true);
+                  } else if (isShellProgressIncreased && shellBadge) {
+                    setNewlyUnlockedBadges([shellBadge]);
+                    setRuneModalIsUnlocked(false);
+                    setRuneModalProgress(shellProgressAfter);
+                    setRuneModalOldProgress(shellProgressBefore);
+                    setShowRuneAchievementModal(true);
+                  } else {
+                    setNewlyUnlockedBadges([]);
+                    setRuneModalIsUnlocked(true);
+                    setRuneModalProgress(undefined);
+                    setRuneModalOldProgress(undefined);
+                    setShowRuneAchievementModal(false);
+                  }
                 }
 
                 // Celebration particles
@@ -1430,18 +1531,81 @@ export const FlappyGame: React.FC = () => {
               });
               setLostBadgesOnGameOver(lostBadges);
 
-              // Check if Coral Rune was achieved on this run (since total points progress is preserved):
-              // If achieved, show the Rune Achievement Modal FIRST before the Swim Again modal!
+              // Progress before vs after for Coral and Shell
               const coralBadge = BADGES.find((b) => b.id === 'coral');
-              const isCoralNewlyUnlocked =
-                updatedStats.totalScore >= 10 && !priorBadges.includes('coral') && !!coralBadge;
+              const shellBadge = BADGES.find((b) => b.id === 'shell');
 
-              if (isCoralNewlyUnlocked && coralBadge) {
+              const coralProgressBefore = runeProgressBeforeLevelRef.current.coral || getBadgeProgress('coral', stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+              const shellProgressBefore = runeProgressBeforeLevelRef.current.shell || getBadgeProgress('shell', stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+
+              const coralProgressAfter = getBadgeProgress(
+                'coral',
+                updatedStats.totalScore,
+                reefProgress,
+                updatedStats,
+                totalFragmentsByFish
+              );
+              const shellProgressAfter = getBadgeProgress(
+                'shell',
+                updatedStats.totalScore,
+                reefProgress,
+                updatedStats,
+                totalFragmentsByFish
+              );
+
+              // Check if Coral was newly completed on this run:
+              const isCoralNewlyCompleted =
+                !priorBadges.includes('coral') && coralProgressAfter.isAchieved;
+
+              // (2) If Coral has not been completed, but Coral progress has increased:
+              const isCoralProgressIncreased =
+                !coralProgressAfter.isAchieved && coralProgressAfter.current > coralProgressBefore.current;
+
+              // Check if Shell was newly completed on this run:
+              const isShellNewlyCompleted =
+                !priorBadges.includes('shell') && shellProgressAfter.isAchieved;
+
+              // (3) If Shell has not been completed, but Coral has been completed, and Shell progress has increased:
+              const isShellProgressIncreased =
+                coralProgressAfter.isAchieved &&
+                !shellProgressAfter.isAchieved &&
+                shellProgressAfter.current > shellProgressBefore.current;
+
+              if (isCoralNewlyCompleted && coralBadge) {
+                // Coral unlocked! Show in unlocked mode with progress bar fill transition
                 setNewlyUnlockedBadges([coralBadge]);
+                setRuneModalIsUnlocked(true);
+                setRuneModalProgress(coralProgressAfter);
+                setRuneModalOldProgress(coralProgressBefore);
                 setShowRuneAchievementModal(true);
                 sound.playFishLevelUpSplash();
+              } else if (isCoralProgressIncreased && coralBadge) {
+                // Coral progress increased: Show in locked mode with current progress
+                setNewlyUnlockedBadges([coralBadge]);
+                setRuneModalIsUnlocked(false);
+                setRuneModalProgress(coralProgressAfter);
+                setRuneModalOldProgress(coralProgressBefore);
+                setShowRuneAchievementModal(true);
+              } else if (isShellNewlyCompleted && shellBadge) {
+                // Shell unlocked! Show in unlocked mode with progress bar fill transition
+                setNewlyUnlockedBadges([shellBadge]);
+                setRuneModalIsUnlocked(true);
+                setRuneModalProgress(shellProgressAfter);
+                setRuneModalOldProgress(shellProgressBefore);
+                setShowRuneAchievementModal(true);
+                sound.playFishLevelUpSplash();
+              } else if (isShellProgressIncreased && shellBadge) {
+                // Shell progress increased: Show in locked mode with current progress
+                setNewlyUnlockedBadges([shellBadge]);
+                setRuneModalIsUnlocked(false);
+                setRuneModalProgress(shellProgressAfter);
+                setRuneModalOldProgress(shellProgressBefore);
+                setShowRuneAchievementModal(true);
               } else {
                 setNewlyUnlockedBadges([]);
+                setRuneModalIsUnlocked(true);
+                setRuneModalProgress(undefined);
+                setRuneModalOldProgress(undefined);
                 setShowRuneAchievementModal(false);
               }
 
@@ -1963,11 +2127,14 @@ export const FlappyGame: React.FC = () => {
         />
       )}
 
-      {/* Rune Power Achievement Modal (Precedes Swim Again Modal if Coral Rune Power was achieved this level) */}
-      {gameState === 'GAMEOVER' && showRuneAchievementModal && newlyUnlockedBadges.some((b) => b.id === 'coral') && (
+      {/* Rune Power Achievement Modal (Precedes Swim Again Modal if a Rune Goal was achieved or progress increased this level) */}
+      {gameState === 'GAMEOVER' && showRuneAchievementModal && newlyUnlockedBadges.length > 0 && (
         <RuneAchievementModal
           isOpen={true}
-          badges={newlyUnlockedBadges.filter((b) => b.id === 'coral')}
+          badges={newlyUnlockedBadges}
+          isUnlocked={runeModalIsUnlocked}
+          progress={runeModalProgress}
+          oldProgress={runeModalOldProgress}
           onContinue={() => {
             setShowRuneAchievementModal(false);
           }}
@@ -1975,7 +2142,7 @@ export const FlappyGame: React.FC = () => {
       )}
 
       {/* Game Over Score Board Modal (Swim Again Modal) */}
-      {gameState === 'GAMEOVER' && (!showRuneAchievementModal || !newlyUnlockedBadges.some((b) => b.id === 'coral')) && (
+      {gameState === 'GAMEOVER' && (!showRuneAchievementModal || newlyUnlockedBadges.length === 0) && (
         <ScoreBoardModal
           score={score}
           reefsClearedInRun={stateRef.current.reefsClearedInRun}
@@ -1999,11 +2166,14 @@ export const FlappyGame: React.FC = () => {
         />
       )}
 
-      {/* Rune Power Achievement Modal (Precedes Reef Cleared Modal if a Rune Power was achieved this level) */}
+      {/* Rune Power Achievement Modal (Precedes Reef Cleared Modal if a Rune Power was achieved or progress increased this level) */}
       {gameState === 'REEF_CLEARED' && showRuneAchievementModal && newlyUnlockedBadges.length > 0 && (
         <RuneAchievementModal
           isOpen={true}
           badges={newlyUnlockedBadges}
+          isUnlocked={runeModalIsUnlocked}
+          progress={runeModalProgress}
+          oldProgress={runeModalOldProgress}
           onContinue={() => {
             setShowRuneAchievementModal(false);
           }}

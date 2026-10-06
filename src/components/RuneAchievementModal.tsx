@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
-import { BadgeDefinition } from '../utils/badges';
+import { BadgeDefinition, BadgeProgress } from '../utils/badges';
 import { RunePowerUnlockedPanel } from './RunePowerUnlockedPanel';
 
 export interface RuneAchievementModalProps {
   isOpen: boolean;
   badges: BadgeDefinition[];
+  isUnlocked?: boolean;
+  progress?: BadgeProgress;
+  oldProgress?: BadgeProgress;
   onContinue: () => void;
 }
 
 export const RuneAchievementModal: React.FC<RuneAchievementModalProps> = ({
   isOpen,
   badges,
+  isUnlocked = true,
+  progress,
+  oldProgress,
   onContinue,
 }) => {
   const [canInteract, setCanInteract] = useState(false);
@@ -23,13 +29,15 @@ export const RuneAchievementModal: React.FC<RuneAchievementModalProps> = ({
       return;
     }
     setCanInteract(false);
+    // If animating progress to unlock, allow extra time for the progress fill + celebration animation
+    const lockoutDuration = isUnlocked && oldProgress ? 2200 : 1000;
     const timer = setTimeout(() => {
       setCanInteract(true);
-    }, 1000); // Full 1 second lockout to let player enjoy achievement animation
+    }, lockoutDuration);
     return () => clearTimeout(timer);
-  }, [isOpen, badges]);
+  }, [isOpen, badges, isUnlocked, oldProgress]);
 
-  // Block spacebar, Enter, and arrow keys for the first 1 second in capture phase;
+  // Block spacebar, Enter, and arrow keys for lockout duration in capture phase;
   // trigger onContinue once canInteract is true
   useEffect(() => {
     if (!isOpen || !badges || badges.length === 0) return;
@@ -49,7 +57,7 @@ export const RuneAchievementModal: React.FC<RuneAchievementModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, badges, canInteract, onContinue]);
 
-  // Block all pointer/click/tap inputs anywhere for the first 1 second
+  // Block all pointer/click/tap inputs anywhere for the lockout duration
   useEffect(() => {
     if (!isOpen || !badges || badges.length === 0 || canInteract) return;
 
@@ -76,6 +84,8 @@ export const RuneAchievementModal: React.FC<RuneAchievementModalProps> = ({
     onContinue();
   };
 
+  const showGoldenBorder = isUnlocked && !oldProgress;
+
   return (
     <AnimatePresence>
       <div
@@ -94,17 +104,28 @@ export const RuneAchievementModal: React.FC<RuneAchievementModalProps> = ({
           exit={{ scale: 0.85, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 20, stiffness: 280 }}
           style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
-          className="w-full max-w-sm bg-slate-900/95 border border-amber-400/40 rounded-3xl p-5 shadow-[0_0_60px_rgba(251,191,36,0.3)] text-slate-100 flex flex-col items-center relative overflow-hidden transform-gpu will-change-transform"
+          className={`w-full max-w-sm bg-slate-900/95 border ${
+            showGoldenBorder
+              ? 'border-amber-400/40 shadow-[0_0_60px_rgba(251,191,36,0.3)]'
+              : 'border-cyan-500/40 shadow-[0_0_60px_rgba(6,182,212,0.25)]'
+          } rounded-3xl p-5 text-slate-100 flex flex-col items-center relative overflow-hidden transform-gpu will-change-transform transition-colors duration-500`}
         >
           {/* Ambient background celebration glow */}
-          <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-400/20 rounded-full blur-3xl pointer-events-none" />
+          <div
+            className={`absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 ${
+              showGoldenBorder ? 'bg-amber-400/20' : 'bg-cyan-500/20'
+            } rounded-full blur-3xl pointer-events-none transition-colors duration-500`}
+          />
 
-          {/* Rune Power Achievement Panel - No titles, instructions, or descriptions outside */}
+          {/* Rune Power Achievement Panel */}
           <div className="w-full flex flex-col gap-3 relative z-10">
             {badges.map((badge, idx) => (
               <RunePowerUnlockedPanel
                 key={badge.id}
                 badge={badge}
+                isUnlocked={isUnlocked}
+                progress={progress}
+                oldProgress={oldProgress}
                 delayIndex={idx}
                 isGameOver={false}
               />
