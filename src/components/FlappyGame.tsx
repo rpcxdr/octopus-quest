@@ -1394,7 +1394,11 @@ export const FlappyGame: React.FC = () => {
                   return unlockedNow && !priorBadges.includes(b.id);
                 });
                 if (earnedBadges.length > 0) {
-                  const primaryBadge = earnedBadges[0];
+                  // If any rune power was newly unlocked on this level:
+                  const primaryBadge = earnedBadges.find((b) => {
+                    const oldP = runeProgressBeforeLevelRef.current[b.id];
+                    return oldP && oldP.current < oldP.target;
+                  }) || earnedBadges[0];
                   const oldProg = runeProgressBeforeLevelRef.current[primaryBadge.id] || getBadgeProgress(primaryBadge.id, stats.totalScore, reefProgress, stats, totalFragmentsByFish);
                   const newProg = getBadgeProgress(primaryBadge.id, updatedStats.totalScore, updatedReefProgress, updatedStats, newFragsOnClear);
                   setNewlyUnlockedBadges(earnedBadges);
@@ -1404,49 +1408,34 @@ export const FlappyGame: React.FC = () => {
                   sound.playFishLevelUpSplash();
                   setShowRuneAchievementModal(true);
                 } else {
-                  // Check if progress has increased on quest goals that do not require clearing the level (Coral and Shell)
-                  const coralBadge = BADGES.find((b) => b.id === 'coral');
-                  const shellBadge = BADGES.find((b) => b.id === 'shell');
+                  // Check if progress has increased on quest goals (Coral, Shell, Coral Seahorse, Gulf Stream)
+                  const questIds: BadgeId[] = ['coral', 'shell', 'coral_seahorse', 'gulf_stream', 'tidesong'];
+                  let progressedBadge: BadgeDefinition | null = null;
+                  let progressedBefore: BadgeProgress | undefined = undefined;
+                  let progressedAfter: BadgeProgress | undefined = undefined;
 
-                  const coralProgressBefore = runeProgressBeforeLevelRef.current.coral || getBadgeProgress('coral', stats.totalScore, reefProgress, stats, totalFragmentsByFish);
-                  const shellProgressBefore = runeProgressBeforeLevelRef.current.shell || getBadgeProgress('shell', stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+                  for (const id of questIds) {
+                    // Shell goal only activates once Coral is completed
+                    if (id === 'shell') {
+                      const coralProg = getBadgeProgress('coral', updatedStats.totalScore, updatedReefProgress, updatedStats, newFragsOnClear);
+                      if (!coralProg.isAchieved) continue;
+                    }
+                    const before = runeProgressBeforeLevelRef.current[id] || getBadgeProgress(id, stats.totalScore, reefProgress, stats, totalFragmentsByFish);
+                    const after = getBadgeProgress(id, updatedStats.totalScore, updatedReefProgress, updatedStats, newFragsOnClear);
 
-                  const coralProgressAfter = getBadgeProgress(
-                    'coral',
-                    updatedStats.totalScore,
-                    updatedReefProgress,
-                    updatedStats,
-                    newFragsOnClear
-                  );
-                  const shellProgressAfter = getBadgeProgress(
-                    'shell',
-                    updatedStats.totalScore,
-                    updatedReefProgress,
-                    updatedStats,
-                    newFragsOnClear
-                  );
+                    if (!after.isAchieved && after.current > (before?.current ?? 0)) {
+                      progressedBadge = BADGES.find((b) => b.id === id) || null;
+                      progressedBefore = before;
+                      progressedAfter = after;
+                      break;
+                    }
+                  }
 
-                  // (2) If Coral has not been completed, but Coral progress has increased:
-                  const isCoralProgressIncreased =
-                    !coralProgressAfter.isAchieved && coralProgressAfter.current > coralProgressBefore.current;
-
-                  // (3) If Shell has not been completed, but Coral has been completed, and Shell progress has increased:
-                  const isShellProgressIncreased =
-                    coralProgressAfter.isAchieved &&
-                    !shellProgressAfter.isAchieved &&
-                    shellProgressAfter.current > shellProgressBefore.current;
-
-                  if (isCoralProgressIncreased && coralBadge) {
-                    setNewlyUnlockedBadges([coralBadge]);
+                  if (progressedBadge && progressedAfter) {
+                    setNewlyUnlockedBadges([progressedBadge]);
                     setRuneModalIsUnlocked(false);
-                    setRuneModalProgress(coralProgressAfter);
-                    setRuneModalOldProgress(coralProgressBefore);
-                    setShowRuneAchievementModal(true);
-                  } else if (isShellProgressIncreased && shellBadge) {
-                    setNewlyUnlockedBadges([shellBadge]);
-                    setRuneModalIsUnlocked(false);
-                    setRuneModalProgress(shellProgressAfter);
-                    setRuneModalOldProgress(shellProgressBefore);
+                    setRuneModalProgress(progressedAfter);
+                    setRuneModalOldProgress(progressedBefore);
                     setShowRuneAchievementModal(true);
                   } else {
                     setNewlyUnlockedBadges([]);

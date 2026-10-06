@@ -13,11 +13,35 @@ import {
 import { BirdSkin, FishFragmentCounts, FishType, GameDifficulty, GameStats, ReefProgress } from '../types';
 import { getReefZoneName, TOTAL_REEF_LEVELS } from '../utils/reef';
 import { countTotalFragments } from '../utils/fragments';
-import { getNextBadgeGoal, getBadgeVisual } from '../utils/badges';
+import { getNextBadgeGoal, getBadgeVisual, BADGES, getBadgeProgress, BadgeProgress } from '../utils/badges';
 import { FishSelectorPanel } from './FishSelectorPanel';
 import { RuneDetailsPanel } from './RuneDetailsPanel';
 import { FishBadgeIcon } from './FishBadgeIcon';
 import { RuneBadgeIcon } from './RuneBadgeIcon';
+import { ProgressBarWithParticles } from './ProgressBarWithParticles';
+
+const RUN_GOAL_STORAGE_KEY = 'octopus_quest_run_goal_progress_old';
+
+function loadRunGoalProgressOld(): Record<string, BadgeProgress> {
+  try {
+    const raw = localStorage.getItem(RUN_GOAL_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    // Ignore error
+  }
+  return {};
+}
+
+function saveRunGoalProgressOld(mapping: Record<string, BadgeProgress>) {
+  try {
+    localStorage.setItem(RUN_GOAL_STORAGE_KEY, JSON.stringify(mapping));
+  } catch (e) {
+    // Ignore error
+  }
+}
+
+// Module-level mapping runGoalProgressOld of badge to progress ({badge.id: progress})
+export let runGoalProgressOld: Record<string, BadgeProgress> = loadRunGoalProgressOld();
 
 interface StartScreenOverlayProps {
   stats: GameStats;
@@ -63,6 +87,46 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
   const { currentReef, unlockedReef, clearedReefs } = reefProgress;
   const nextRuneGoal = getNextBadgeGoal(stats.totalScore, reefProgress, stats, totalFragmentsByFish);
   const runeVisual = nextRuneGoal ? getBadgeVisual(nextRuneGoal.badge.id) : null;
+
+  // (2) When rendering the screen, just like the modal, if progress > progressOld
+  // (compare nextRuneGoal.progress to runGoalProgressOld[nextRuneGoal.badge.id]),
+  // then animate the progress bar going from progressOld to progress.
+  const [initialOldProgress] = useState<BadgeProgress | undefined>(() => {
+    if (!nextRuneGoal) return undefined;
+    const progressOld = runGoalProgressOld[nextRuneGoal.badge.id];
+    if (
+      progressOld &&
+      (nextRuneGoal.progress.current > progressOld.current ||
+        nextRuneGoal.progress.percent > progressOld.percent)
+    ) {
+      return progressOld;
+    }
+    return undefined;
+  });
+
+  // (1) In StartScreenOverlay, record a mapping runGoalProgressOld of badge to progress
+  // ({badge.id:progress}) for all of the badges called progressOld after the screen has been rendered
+  useEffect(() => {
+    const updated: Record<string, BadgeProgress> = {};
+    BADGES.forEach((badge) => {
+      updated[badge.id] = getBadgeProgress(
+        badge.id,
+        stats.totalScore,
+        reefProgress,
+        stats,
+        totalFragmentsByFish
+      );
+    });
+    runGoalProgressOld = { ...runGoalProgressOld, ...updated };
+    saveRunGoalProgressOld(runGoalProgressOld);
+  }, [
+    stats.totalScore,
+    stats.gamesPlayed,
+    stats.highScore,
+    reefProgress.unlockedReef,
+    reefProgress.currentReef,
+    totalFragmentsByFish,
+  ]);
 
   const isLevel50Completed = Boolean(reefProgress.clearedReefs[TOTAL_REEF_LEVELS]?.cleared);
   const isReef50 = currentReef >= TOTAL_REEF_LEVELS;
@@ -227,25 +291,16 @@ export const StartScreenOverlay: React.FC<StartScreenOverlayProps> = ({
                     {nextRuneGoal.badge.name}
                   </span>
 
-                  {/* Progress bar showing % complete just like on stats page (no words) */}
-                  <div className="w-full bg-slate-950/70 rounded-full h-1.5 overflow-hidden mt-2.5 border border-white/10 max-w-[200px] shadow-inner">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        nextRuneGoal.progress.isAchieved
-                          ? nextRuneGoal.badge.id === 'tidesong'
-                            ? 'bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.6)]'
-                            : nextRuneGoal.badge.id === 'coral_seahorse'
-                            ? 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]'
-                            : nextRuneGoal.badge.id === 'atlantis_gate'
-                            ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.6)]'
-                            : nextRuneGoal.badge.id === 'gulf_stream'
-                            ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.6)]'
-                            : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]'
-                          : 'bg-cyan-500'
-                      }`}
-                      style={{ width: `${nextRuneGoal.progress.percent}%` }}
-                    />
-                  </div>
+                  {/* Progress bar showing % complete with particle animation from progressOld to progress */}
+                  <ProgressBarWithParticles
+                    progress={nextRuneGoal.progress}
+                    oldProgress={initialOldProgress}
+                    compact
+                    showLabels={false}
+                    barHeight="h-2"
+                    maxWidth="max-w-[200px]"
+                    className="w-full max-w-[200px] mt-2"
+                  />
                 </div>
               </>
             )}

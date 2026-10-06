@@ -131,9 +131,8 @@ export function resetReefProgress(): ReefProgress {
   } catch {
     // ignore
   }
-  const isShellUnlocked = loadGameStats().totalScore >= 20;
   return {
-    unlockedReef: isShellUnlocked ? 5 : 1,
+    unlockedReef: 1,
     currentReef: 1,
     clearedReefs: {},
     gulfStreamUnlocked: false,

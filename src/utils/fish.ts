@@ -85,6 +85,8 @@ export function getBestReefScore(stats: GameStats, progress: ReefProgress): numb
  * Level 0 = 0 to 4 fragments.
  */
 export function getFishLevel(totalFragments: number): number {
+   // TODO: Remove this HACK
+   return 20;
   const count = Math.max(0, Math.floor(totalFragments || 0));
   if (count < 5) return 0;
   return 1 + Math.floor((count - 5) / 10);
@@ -96,6 +98,8 @@ export function getFishLevel(totalFragments: number): number {
  * All other fish unlock at level 1 (requires 5 total fragments).
  */
 export function isFishUnlocked(fishId: FishType, fishLevel: number): boolean {
+   // TODO: Remove this HACK
+   return true;
   if (fishId === 'octopus') return true;
   return fishLevel >= 1;
 }

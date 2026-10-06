@@ -108,7 +108,8 @@ export const DEFAULT_PHYSICS: PhysicsConfig = {
 export function getSpeedIncreasePercent(difficulty?: GameDifficulty | string, reefLevel: number = 1): number {
   const safeLevel = Math.max(1, Math.min(50, Math.floor(reefLevel || 1)));
   const levelSpeedPercent = safeLevel;
-  const difficultySpeedPercent = difficulty === 'hard' ? 20 : 0;
+  //const difficultySpeedPercent = difficulty === 'hard' ? 20 : 0;
+  const difficultySpeedPercent = difficulty === 'hard' ? 70 : 0;
   return levelSpeedPercent + difficultySpeedPercent;
 }
 
