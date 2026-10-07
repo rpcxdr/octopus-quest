@@ -73,15 +73,24 @@ export function generateReefFloatingFragments(
     // Spread horizontally across gap (e.g. 0.33 & 0.67 if 2 fragments in same gap)
     const gapFraction = (indexInGap + 1) / (totalInGap + 1);
 
-    // Height: if multiple in same gap, partition vertical space so they never overlap in Y
+    // Height: randomized height independent of horizontal left-to-right position
     let height: number;
     if (totalInGap === 1) {
       height = Math.round(minY + rng() * (maxY - minY));
     } else {
-      const sliceSize = (maxY - minY) / totalInGap;
-      const sliceBase = minY + indexInGap * sliceSize;
-      const jitter = (rng() * 0.6 + 0.2) * sliceSize;
-      height = Math.round(Math.min(maxY - 10, Math.max(minY + 10, sliceBase + jitter)));
+      let candidateHeight = Math.round(minY + rng() * (maxY - minY));
+      const existingInGap = fragments.filter((f) => f.columnGapIndex === gap);
+
+      // If multiple fragments share this gap, ensure comfortable vertical separation (no crowding)
+      // while keeping the vertical height completely independent of left-to-right position
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const tooClose = existingInGap.some((f) => Math.abs(candidateHeight - f.baseY) < 32);
+        if (!tooClose) {
+          break;
+        }
+        candidateHeight = Math.round(minY + rng() * (maxY - minY));
+      }
+      height = candidateHeight;
     }
 
     fragments.push({

@@ -2094,18 +2094,7 @@ function traceAmmoniteSilhouette(ctx: CanvasRenderingContext2D, R: number) {
     R * 0.42, 0
   );
 
-  // 3. Inner whorl venter going backwards around center (theta = 2*PI down to 0)
-  for (let i = steps; i >= 0; i--) {
-    const t = i / steps;
-    const th = t * Math.PI * 2;
-    const r = R * (0.16 + 0.26 * t);
-    const px = Math.cos(th) * r;
-    const py = Math.sin(th) * r;
-    ctx.lineTo(px, py);
-  }
-
-  // 4. Umbilicus center pit contour
-  ctx.arc(0, 0, R * 0.16, 0, Math.PI * 2, true);
+  // 3. Solid shell closure without counter-contours carving out the center
   ctx.closePath();
 }
 
@@ -2148,8 +2137,8 @@ function renderAmmoniteCandyShell(
     const th0 = t0 * Math.PI * 2;
     const th1 = t1 * Math.PI * 2;
 
-    const rIn0 = R * 0.16;
-    const rIn1 = R * 0.16;
+    const rIn0 = R * (0.05 + 0.11 * t0);
+    const rIn1 = R * (0.05 + 0.11 * t1);
     const rOut0 = R * (0.16 + 0.26 * t0);
     const rOut1 = R * (0.16 + 0.26 * t1);
 
